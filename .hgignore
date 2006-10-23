@@ -1,0 +1,9 @@
+~$
+^Makefile$
+\.o$
+^umx$
+^test\.
+(^|\.)core$
+^gmon\.out$
+^files(/|$)
+^\.gdb_history$
