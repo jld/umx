@@ -15,10 +15,10 @@
 
 #ifdef UM_MPOOL
 #include "mpool.h"
-MPOOL_DECL(segpool4, 4);
-MPOOL_DECL(segpool8, 8);
-MPOOL_DECL(segpool16, 16);
-MPOOL_DECL(segpool32, 32);
+MPOOL_DECL(segpool4, 2);
+MPOOL_DECL(segpool8, 3);
+MPOOL_DECL(segpool16, 4);
+MPOOL_DECL(segpool32, 5);
 #endif
 
 static size_t um_pdatmlen;
