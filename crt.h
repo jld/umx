@@ -18,11 +18,14 @@ struct block
 	p_t begin, end;
 	void *jmp;
 	struct block *next, **prev;
+	int flags;
 };
 
 void useblk(struct block *blk);
 void delblk(struct block *blk);
 struct block *getblk(p_t x);
+struct block *getblkx(p_t x);
+void depblk(struct block *src, struct block* dst);
 
 static inline int inblk(const struct block *blk, p_t x)
 { return blk->begin <= x && x < blk->end; }

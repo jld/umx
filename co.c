@@ -310,7 +310,8 @@ void umc_codlink(struct cod *from, char *to)
 	((int*)from->next)[-1] = to - from->next;
 }
 
-void* umc_enter(p_t x)
+static struct block*
+umc_mkblk(p_t x)
 {
 	int done = 0, thispg = x/UM_PGSZ;
 	p_t i, o, a, b, c, limit;
@@ -367,21 +368,20 @@ void* umc_enter(p_t x)
 	if (!done) {
 		if (jmpto) 
 			e_jmpi(jmpto);
-#if 0
-		else 
-			umc_enter(g.time);
-#else
 		else {
-			e_addri(ESP,4);
-			e_pushi(g.time);
-			e_calli(um_enter);
-			e_jmpr(EAX);
+			struct block *bln;
+			/* fallthrough to */
+			bln = umc_mkblk(g.time);
+			depblk(blk, bln);
 		}
-#endif
 	}
-	return blk->jmp;
+	return blk;
 }
 
+void *umc_enter(p_t x)
+{
+	return umc_mkblk(x)->jmp;
+}
 
 int umc_start(void)
 {

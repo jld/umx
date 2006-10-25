@@ -5,6 +5,8 @@
 #include "stuff.h"
 #include "crt.h"
 
+#define BLKFL_DEP 1
+
 static /*inline*/ void remblk(struct block *blk)
 { *blk->prev = blk->next;
   if (blk->next) blk->next->prev = blk->prev;
@@ -24,6 +26,7 @@ useblk(struct block* blk)
 	struct block** head;
 	p_t i;
 
+	blk->flags = 0;
 	head = &progblks[blk->begin / UM_PGSZ];
 	insblk(blk, head);
 	
@@ -35,6 +38,13 @@ void
 delblk(struct block *blk)
 {
 	p_t i;
+
+	if (blk->flags & BLKFL_DEP) {
+		whine(("total destruction"));
+		um_crtf();
+		um_crti();
+		return;
+	}
 	
 	for (i = blk->begin; i < blk->end; ++i)
 		bclr(prognowr, i);
@@ -58,24 +68,46 @@ getblk(p_t x)
 	return NULL;
 }
 
+struct block*
+getblkx(p_t x)
+{
+	struct block **head, *p;
+
+	head = &progblks[x / UM_PGSZ];
+	for (p = *head; p; p = p->next)
+		if (p->begin == x) {
+			remblk(p);
+			insblk(p, head);
+			return p;
+		}
+	return NULL;
+}
+
+void
+depblk(struct block *src, struct block* dst)
+{
+	src = src;
+	dst->flags |= BLKFL_DEP;
+}
+
 void*
 um_postwrite(p_t target, p_t source)
 {
 	struct block *tblk;
-	int yow;
+	int yow, ayow = 0;
 
 	if (!btst(prognowr, target))
 		return 0;
 
-	tblk = getblk(target);
-	assert(tblk);
-	
-	yow = inblk(tblk, source);
-	delblk(tblk);
-	whine(("postwrite: shootdown %u -> %u%s",
-		  source, target, yow?" (YOW!)":""));
-	
-	if (yow)
+	while ((tblk = getblk(target))) {
+		yow = inblk(tblk, source);
+		ayow = ayow || yow;
+		whine(("postwrite: shootdown %u -> %u%s",
+			  source, target, yow?" (YOW!)":""));
+		delblk(tblk);
+	}
+
+	if (!btst(prognowr, source))
 		return umc_enter(source + 1);
 	else
 		return 0;
@@ -100,14 +132,11 @@ um_enter(p_t x)
 {
 	struct block *blk;
 
-	blk = getblk(x);
-	if (blk) {
-		if (x == blk->begin)
-			return blk->jmp;
-		else 
-			delblk(blk);
-	}
-	return umc_enter(x);
+	blk = getblkx(x);
+	if (blk)
+		return blk->jmp;
+	else 
+		return umc_enter(x);
 }
 
 void*
