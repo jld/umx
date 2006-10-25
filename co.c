@@ -367,8 +367,17 @@ void* umc_enter(p_t x)
 	if (!done) {
 		if (jmpto) 
 			e_jmpi(jmpto);
+#if 0
 		else 
 			umc_enter(g.time);
+#else
+		else {
+			e_addri(ESP,4);
+			e_pushi(g.time);
+			e_calli(um_enter);
+			e_jmpr(EAX);
+		}
+#endif
 	}
 	return blk->jmp;
 }
