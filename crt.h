@@ -2,7 +2,7 @@
 #define ___UMX__CRT_H
 #include "stuff.h"
 
-#define UM_PGSZ 4096
+#define UM_PGSZ 64
 
 typedef unsigned *bitset_t;
 
