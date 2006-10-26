@@ -6,12 +6,12 @@
 #define SIV static inline void
 
 struct {
-	struct cod c;
+	struct cod inl, outl, *c;
 	p_t time;
 	p_t con[8];
 	uint8_t cset;
 } g;
-#define here (g.c.next)
+#define here (g.c->next)
 #define ISC(r) (g.cset&(1<<(r)))
 
 SIV setcon(int r, p_t v) { g.cset |= 1 << r; g.con[r] = v; }
@@ -154,7 +154,7 @@ SIV e_leave(void) { CC(0xC9); }
 
 SIV e_jcc(void* i, int cc) {
 	int s = (char*)i-(here+2);
-	int l = (char*)i-(here+5);
+	int l = (char*)i-(here+6);
 	if (ISB(s)) { CC(0x70+cc); CC(s); }
 	else { CC(0x0F); CC(0x80+cc); CW(l); }
 }
@@ -210,16 +210,27 @@ static void co_amend(int ra, int rb, int rc)
 	Csib(Sfour, ECX, EDX);
 	/* and now, the postwrite */
 	e_cmpri(EDX, 0);
+#if 0
+	e_jcc(g.outl.next, CCz);
+	g.c = &g.outl;
+#else
 	jcc_over(CCz+1);
+#endif
 	e_addri(ESP, 8);
 	e_pushi(g.time);
 	e_pushr(ECX);
 	e_calli(um_postwrite);
 	e_cmpri(EAX, 0);
+#if 0
+	e_jcc(g.inl.next, CCz);
+	e_jmpr(EAX);
+	g.c = &g.inl;
+#else 
 	jcc_over(CCz);
 	e_jmpr(EAX);
 	end_over;
 	end_over;
+#endif
 }
 
 static void co_add(int ra, int rb, int rc)
@@ -276,7 +287,6 @@ static void co_div(int ra, int rb, int rc)
 
 static void co_nand(int ra, int rb, int rc)
 {
-	/* punt on the register/immediate stuff */
 	if (ISC(rb)&&ISC(rc)) {
 		co_ortho(ra, ~(g.con[rb] & g.con[rc]));
 		return;
@@ -333,17 +343,18 @@ static void co_load(int rb, int rc)
 	e_umldc(EAX, rc);
 	e_umldc(EDX, rb);
 	e_cmpri(EDX, 0);
-	jcc_over(CCz+1);
+	e_jcc(g.outl.next, CCz+1);
 	e_addri(ESP,4);
 	e_pushr(EAX);
 	e_calli(um_enter);
 	e_jmpr(EAX);
-	end_over;
+	g.c = &g.outl;
 	e_addri(ESP,8);
 	e_pushr(EAX);
 	e_pushr(EDX);
 	e_calli(um_loadfar);
 	e_jmpr(EAX);
+	g.c = &g.inl;
 }
 
 static void co_ortho(int ri, p_t imm)
@@ -393,13 +404,15 @@ umc_mkblk(p_t x)
 	blk->jmp = here;
 	
 	g.cset = 0;
+	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
 		char *then;
 		if (g.time >= proglen) {
 			co_badness(); done = 1; break;
 		}
 
-		getcod(&g.c, 1024);
+		getcod(&g.inl, 1024);
+		getcod(&g.outl, 1024);
 		then = here;
 		i = progdata[g.time];
 		o = i>>28;
@@ -451,7 +464,9 @@ int umc_start(void)
 {
 	int (*entry)(int,int,int,int,int,int,int,int);
 
-	newcod(&g.c);
+	newcod(&g.inl);
+	newcod(&g.outl);
+	g.c = &g.inl;
 	entry = (void*)here;
 	co_enter();
 	umc_enter(0);
