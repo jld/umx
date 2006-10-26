@@ -8,6 +8,7 @@
 struct {
 	struct cod inl, outl, *c;
 	p_t time;
+	struct block *curblk;
 	p_t con[8];
 	uint8_t cset;
 } g;
@@ -340,14 +341,11 @@ static void co_input(int rc)
 
 static void co_load(int rb, int rc)
 {
-	e_umldc(EAX, rc);
+	if (!ISC(rc))
+		e_umld(EAX, rc);
 	e_umldc(EDX, rb);
 	e_cmpri(EDX, 0);
 	e_jcc(g.outl.next, CCz+1);
-	e_addri(ESP,4);
-	e_pushr(EAX);
-	e_calli(um_enter);
-	e_jmpr(EAX);
 	g.c = &g.outl;
 	e_addri(ESP,8);
 	e_pushr(EAX);
@@ -355,6 +353,35 @@ static void co_load(int rb, int rc)
 	e_calli(um_loadfar);
 	e_jmpr(EAX);
 	g.c = &g.inl;
+	if (ISC(rc)) {
+		struct block *dst = getblkx(g.con[rc]);
+		if (dst) {
+			e_jmpi(dst->jmp);
+			depblk(g.curblk, dst);
+		} else {
+			e_calli(g.outl.next);
+			g.c = &g.outl;
+			e_subri(ESP, 4);
+			e_pushi((int)g.curblk);
+			e_pushi(g.con[rc]);
+			e_calli(um_enterdep);
+			e_addri(ESP,12);
+			e_popr(EDX);
+			e_subrr(EAX,EDX); /* rel */
+			e_subri(EDX, 5); /* insn */
+			/* movb [EDX], $E9 */
+			CC(0xC6); Cmodrm(MODnd, 0, EDX); CC(0xE9);
+			/* movl [EDX+1], EAX */
+			CC(0x89); Cmodrm(MODdb, EAX, EDX); CC(1);
+			e_jmpr(EDX);
+			g.c = &g.inl;
+		}
+	} else {
+		e_addri(ESP,4);
+		e_pushr(EAX);
+		e_calli(um_enter);
+		e_jmpr(EAX);
+	}
 }
 
 static void co_ortho(int ri, p_t imm)
@@ -403,6 +430,7 @@ umc_mkblk(p_t x)
 	blk->begin = x;
 	blk->jmp = here;
 	
+	g.curblk = blk;
 	g.cset = 0;
 	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
@@ -440,6 +468,7 @@ umc_mkblk(p_t x)
 		nb += here - then;
 	}
 	blk->end = g.time;
+	g.curblk = 0;
 	nbcompiled += nb;
 	useblk(blk);
 	if (!done) {

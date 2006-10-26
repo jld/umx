@@ -33,6 +33,7 @@ static inline int inblk(const struct block *blk, p_t x)
 void* um_postwrite(p_t target, p_t source);
 void* um_enter(p_t x);
 void* um_loadfar(p_t seg, p_t idx);
+void* um_enterdep(p_t x, struct block *src);
 
 struct block **progblks;
 bitset_t prognowr;
