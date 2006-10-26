@@ -121,6 +121,17 @@ SIV e_cmpri(int r, int i) {
 	e_xxxri(r, i, 7, 0x3D);
 }
 
+SIV e_shxri(int r, int i, int ro) {
+	if (i == 1) {
+		CC(0xD1); Cmodrm(MODreg, ro, r);
+	} else {
+		CC(0xC1); Cmodrm(MODreg, ro, r); CC(i);
+	}
+}
+
+SIV e_shrri(int r, int i) { e_shxri(r, i, 5); }
+SIV e_shlri(int r, int i) { e_shxri(r, i, 4); }
+
 
 SIV e_jmpr(int r) {
 	CC(0xFF); Cmodrm(MODreg,4,r);
@@ -243,11 +254,10 @@ static void co_div(int ra, int rb, int rc)
 		co_ortho(ra, g.con[rb] / g.con[rc]);
 		return;
 	}
-#if 0
 	if (ISC(rc) && g.con[rc]) {
 		p_t d = g.con[rc];
 		int z = __builtin_ctz(d);
-		if (d == 1 << z) {
+		if (d == 1U << z) {
 			e_umld(EAX, rb);
 			e_shrri(EAX, z);
 			e_umst(EAX, ra);
@@ -255,7 +265,7 @@ static void co_div(int ra, int rb, int rc)
 			return;
 		}
 	}
-#endif
+
 	e_umldc(ECX, rc);
 	e_umldc(EAX, rb);
 	e_xorrr(EDX, EDX);
