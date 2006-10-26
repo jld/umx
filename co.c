@@ -3,11 +3,19 @@
 #include "stuff.h"
 #include "crt.h"
 
+#define SIV static inline void
+
 struct {
 	struct cod c;
 	p_t time;
+	p_t con[8];
+	uint8_t cset;
 } g;
 #define here (g.c.next)
+#define ISC(r) (g.cset&(1<<(r)))
+
+SIV setcon(int r, p_t v) { g.cset |= 1 << r; g.con[r] = v; }
+SIV noncon(int r) { g.cset &= ~(1 << r); }
 
 #define CC(ch) (*here++ = (ch))
 #define CW(w) (((int*)(here+=4))[-1] = (w))
@@ -43,7 +51,6 @@ struct {
 #define CCl 12 /* s */
 #define CCle 14 /* s */
 
-#define SIV static inline void
 #define Cmodrm(mod,ro,rm) CC(((mod)<<6)|((ro)<<3)|(rm))
 #define Csib Cmodrm
 #define ISB(n) (((n)>=-128)&&((n)<128))
@@ -144,9 +151,13 @@ SIV e_jcc(void* i, int cc) {
 SIV e_umld(int mr, int ur) { CC(0x8B); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
 SIV e_umst(int mr, int ur) { CC(0x89); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
 
+SIV e_umldc(int mr, int ur) 
+{ if (ISC(ur)) e_movri(mr,g.con[ur]); else e_umld(mr,ur); }
+
 #define jcc_over(cc) e_jcc(here, cc); do { char *there = here
 #define end_over there[-1] = here - there; } while(0)
 
+static void co_ortho(int, p_t);
 
 static void co_enter(void)
 {
@@ -158,28 +169,32 @@ static void co_enter(void)
 
 static void co_cmov(int ra, int rb, int rc)
 {
-	e_umld(EAX, rc);
-	e_cmpri(EAX, 0);
-	jcc_over(CCz);
-	e_umld(EAX, rb);
-	e_umst(EAX, ra);
-	end_over;
+	if (ra != rb) {
+		e_umldc(EAX, rc);
+		e_cmpri(EAX, 0);
+		jcc_over(CCz);
+		e_umldc(EAX, rb);
+		e_umst(EAX, ra);
+		end_over;
+		noncon(ra);
+	}
 }
 
 static void co_index(int ra, int rb, int rc)
 {
-	e_umld(ECX, rc); /* index */
-	e_umld(EDX, rb); /* segment */
+	e_umldc(ECX, rc); /* index */
+	e_umldc(EDX, rb); /* segment */
 	CC(0x8B); Cmodrm(MODnd, EAX, RMsib);
 	Csib(Sfour, ECX, EDX);
 	e_umst(EAX, ra); /* data */
+	noncon(ra);
 }
 
 static void co_amend(int ra, int rb, int rc)
 {
-	e_umld(EAX, rc); /* data */
-	e_umld(ECX, rb); /* index */
-	e_umld(EDX, ra); /* segment */
+	e_umldc(EAX, rc); /* data */
+	e_umldc(ECX, rb); /* index */
+	e_umldc(EDX, ra); /* segment */
 	CC(0x89); Cmodrm(MODnd, EAX, RMsib);
 	Csib(Sfour, ECX, EDX);
 	/* and now, the postwrite */
@@ -198,36 +213,70 @@ static void co_amend(int ra, int rb, int rc)
 
 static void co_add(int ra, int rb, int rc)
 {
-	e_umld(EAX, rb);
-	e_umld(EDX, rc);
+	if (ISC(rb)&&ISC(rc)) {
+		co_ortho(ra, g.con[rb] + g.con[rc]);
+		return;
+	}
+	e_umldc(EAX, rb);
+	e_umldc(EDX, rc);
 	e_addrr(EAX, EDX);
 	e_umst(EAX, ra);
+	noncon(ra);
 }
 
 static void co_mul(int ra, int rb, int rc)
 {
-	e_umld(EAX, rb);
-	e_umld(EDX, rc);
+	if (ISC(rb)&&ISC(rc)) {
+		co_ortho(ra, g.con[rb] * g.con[rc]);
+		return;
+	}
+	e_umldc(EAX, rb);
+	e_umldc(EDX, rc);
 	e_mulrr(EAX, EDX);
 	e_umst(EAX, ra);
+	noncon(ra);
 }
 
 static void co_div(int ra, int rb, int rc)
 {
-	e_umld(ECX, rc);
-	e_umld(EAX, rb);
+	if (ISC(rb)&&ISC(rc) && g.con[rc]) {
+		co_ortho(ra, g.con[rb] / g.con[rc]);
+		return;
+	}
+#if 0
+	if (ISC(rc) && g.con[rc]) {
+		p_t d = g.con[rc];
+		int z = __builtin_ctz(d);
+		if (d == 1 << z) {
+			e_umld(EAX, rb);
+			e_shrri(EAX, z);
+			e_umst(EAX, ra);
+			noncon(ra);
+			return;
+		}
+	}
+#endif
+	e_umldc(ECX, rc);
+	e_umldc(EAX, rb);
 	e_xorrr(EDX, EDX);
 	CC(0xF7); Cmodrm(MODreg, 6, ECX);
 	e_umst(EAX, ra);
+	noncon(ra);
 }
 
 static void co_nand(int ra, int rb, int rc)
 {
-	e_umld(EAX, rb);
-	e_umld(EDX, rc);
+	/* punt on the register/immediate stuff */
+	if (ISC(rb)&&ISC(rc)) {
+		co_ortho(ra, ~(g.con[rb] & g.con[rc]));
+		return;
+	}
+	e_umldc(EAX, rb);
+	e_umldc(EDX, rc);
 	e_andrr(EAX, EDX);
 	e_notr(EAX);
 	e_umst(EAX, ra);
+	noncon(ra);
 }
 
 static void co_halt(void)
@@ -239,11 +288,12 @@ static void co_halt(void)
 
 static void co_alloc(int rb, int rc)
 {
-	e_umld(EAX, rc);
+	e_umldc(EAX, rc);
 	e_addri(ESP,4);
 	e_pushr(EAX);
 	e_calli(um_alloc);
 	e_umst(EAX, rb);
+	noncon(rb);
 }
 
 static void co_free(int rc)
@@ -256,7 +306,7 @@ static void co_free(int rc)
 
 static void co_output(int rc)
 {
-	e_umld(EAX, rc);
+	e_umldc(EAX, rc);
 	e_addri(ESP,4);
 	e_pushr(EAX);
 	e_calli(putchar);
@@ -270,8 +320,8 @@ static void co_input(int rc)
 
 static void co_load(int rb, int rc)
 {
-	e_umld(EAX, rc);
-	e_umld(EDX, rb);
+	e_umldc(EAX, rc);
+	e_umldc(EDX, rb);
 	e_cmpri(EDX, 0);
 	jcc_over(CCz+1);
 	e_addri(ESP,4);
@@ -286,10 +336,11 @@ static void co_load(int rb, int rc)
 	e_jmpr(EAX);
 }
 
-static void co_ortho(int ri, int imm)
+static void co_ortho(int ri, p_t imm)
 {
 	e_movri(EAX, imm);
 	e_umst(EAX, ri);
+	setcon(ri, imm);
 }
 
 static void co_badness(void)
@@ -320,6 +371,8 @@ umc_mkblk(p_t x)
 	unsigned long long nb = 0;
 
 	limit = (thispg + 1) * UM_PGSZ;
+	/* This is no longer strictly necessary; with more
+	   optimization it might be worth removing? */
 	for (bli = progblks[thispg]; bli; bli = bli->next)
 		if (bli->begin > x && bli->begin < limit) {
 			limit = bli->begin;
@@ -329,6 +382,7 @@ umc_mkblk(p_t x)
 	blk->begin = x;
 	blk->jmp = here;
 	
+	g.cset = 0;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
 		char *then;
 		if (g.time >= proglen) {
