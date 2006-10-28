@@ -8,8 +8,8 @@
   1 << (SLSHIFT-poolshift-5) bitmap words
 */
 
-#define MPOOL_SLSHIFT 16
-#define MPOOL_MINFREE 9
+#define MPOOL_SLSHIFT 14
+#define MPOOL_MINFREE 8
 
 struct mpool {
 	unsigned *slab;
@@ -32,6 +32,8 @@ void mpool_init(struct mpool *, int);
 #define MPO_FREE(slabp) ((slabp)[(1<<MPOOL_SLSHIFT)-3])
 #define MPO_POST(slabp) (*((struct mpool**)&((slabp)[(1<<MPOOL_SLSHIFT)-4])))
 #define MPO_BMW(shift) ((1U<<MPOOL_SLSHIFT)>>((shift)+5))
+#define MPO_NWH 4
+#define MPO_MNF(sh) ((1U<<MPOOL_SLSHIFT)>>((sh)+MPOOL_MINFREE))
 
 #define MPOOL_ALLOC(var,name) \
 	((var)=mpool_alloc(&MPO_OLP(name), MPO_OLS(name)))
@@ -58,7 +60,10 @@ static inline void mpool_free(void *ptr, struct mpool *po, int sh) {
 	unsigned mi = MPO_PTI(ptr,sl,sh);
 	if (sl == po->slab && po->ptr >= mi>>5) memset(ptr, 0, 4<<sh);
 	MPO_BMAP(sl)[mi>>5] |= 1<<(mi&31);
-	++MPO_FREE(sl);
+	if (MPO_FREE(sl)++ == MPO_MNF(sh) && sl != po->slab) {
+		MPO_NEXT(sl) = MPO_NEXT(po->slab);
+		MPO_NEXT(po->slab) = sl;
+	}
 }
 
 static inline void mpool_xfree(void *ptr) {

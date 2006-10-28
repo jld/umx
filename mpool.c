@@ -32,7 +32,7 @@ mpool_newslab(int sh)
 
 	bm = malloc(MPO_BMW(sh)*4);
 	memset(bm, 255, MPO_BMW(sh)*4);
-	bm[MPO_BMW(sh)-1] >>= 1;
+	bm[MPO_BMW(sh)-1] >>= ((MPO_NWH + (1 << sh) - 1) >> sh);
 	MPO_BMAP(sl) = bm;
 	MPO_FREE(sl) = MPO_BMW(sh) * 32 - 1;
 
@@ -77,29 +77,24 @@ void mpool_init(struct mpool *mp, int sh)
 	mp->rsh = sh;
 	sl = mpool_newslab(sh);
 	MPO_POST(sl) = mp;
-	MPO_NEXT(sl) = sl;
 	slab_putout(mp, sl, sh);
 }
 
 void *mpool_alloc_eop(struct mpool *mp, int sh)
 {
-	unsigned *sl, minfree;
+	unsigned *sl = mp->slab;
 
-	minfree = (1 << MPOOL_SLSHIFT) >> (sh + MPOOL_MINFREE);
-	sl = mp->slab;
-	do {
-		if (MPO_FREE(sl) > minfree) {
-			slab_wipe(sl, sh);
-			goto done;
-		}
+	if (MPO_FREE(sl) <= MPO_MNF(sh)) {
 		sl = MPO_NEXT(sl);
-	} while (sl != mp->slab);
+		MPO_NEXT(mp->slab) = 0;
+	}
+	if (!sl) {
+		sl = mpool_newslab(sh);
+		MPO_POST(sl) = mp;
+	} else {
+		slab_wipe(sl, sh);
+	}
 	
-	sl = mpool_newslab(sh);
-	MPO_POST(sl) = mp;
-	MPO_NEXT(sl) = MPO_NEXT(mp->slab);
-	MPO_NEXT(mp->slab) = sl;
- done:
 	slab_putout(mp, sl, sh);
 	return mpool_alloc(mp, sh);
 }
