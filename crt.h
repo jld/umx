@@ -2,7 +2,7 @@
 #define ___UMX__CRT_H
 #include "stuff.h"
 
-#define UM_PGSZ 64
+#define UM_PGSZ 1024
 
 typedef unsigned *bitset_t;
 
@@ -33,9 +33,10 @@ static inline int inblk(const struct block *blk, p_t x)
 void* um_postwrite(p_t target, p_t source);
 void* um_enter(p_t x);
 void* um_loadfar(p_t seg, p_t idx);
+void* um_enterdep(p_t x, struct block *src);
 
 struct block **progblks;
-bitset_t prognowr;
+bitset_t prognowr, prognoex;
 
 struct cod
 {
@@ -47,6 +48,7 @@ void getcod(struct cod *c, int n);
 
 void um_crti(void);
 void um_crtf(void);
+void um_destroy_world(void);
 void umc_codlink(struct cod *from, char *to);
 void* umc_enter(p_t x);
 int umc_start(void);

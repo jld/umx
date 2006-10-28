@@ -6,12 +6,13 @@
 #define SIV static inline void
 
 struct {
-	struct cod c;
+	struct cod inl, outl, *c;
 	p_t time;
+	struct block *curblk;
 	p_t con[8];
 	uint8_t cset;
 } g;
-#define here (g.c.next)
+#define here (g.c->next)
 #define ISC(r) (g.cset&(1<<(r)))
 
 SIV setcon(int r, p_t v) { g.cset |= 1 << r; g.con[r] = v; }
@@ -121,6 +122,17 @@ SIV e_cmpri(int r, int i) {
 	e_xxxri(r, i, 7, 0x3D);
 }
 
+SIV e_shxri(int r, int i, int ro) {
+	if (i == 1) {
+		CC(0xD1); Cmodrm(MODreg, ro, r);
+	} else {
+		CC(0xC1); Cmodrm(MODreg, ro, r); CC(i);
+	}
+}
+
+SIV e_shrri(int r, int i) { e_shxri(r, i, 5); }
+SIV e_shlri(int r, int i) { e_shxri(r, i, 4); }
+
 
 SIV e_jmpr(int r) {
 	CC(0xFF); Cmodrm(MODreg,4,r);
@@ -143,7 +155,7 @@ SIV e_leave(void) { CC(0xC9); }
 
 SIV e_jcc(void* i, int cc) {
 	int s = (char*)i-(here+2);
-	int l = (char*)i-(here+5);
+	int l = (char*)i-(here+6);
 	if (ISB(s)) { CC(0x70+cc); CC(s); }
 	else { CC(0x0F); CC(0x80+cc); CW(l); }
 }
@@ -197,18 +209,22 @@ static void co_amend(int ra, int rb, int rc)
 	e_umldc(EDX, ra); /* segment */
 	CC(0x89); Cmodrm(MODnd, EAX, RMsib);
 	Csib(Sfour, ECX, EDX);
-	/* and now, the postwrite */
-	e_cmpri(EDX, 0);
-	jcc_over(CCz+1);
-	e_addri(ESP, 8);
-	e_pushi(g.time);
-	e_pushr(ECX);
-	e_calli(um_postwrite);
-	e_cmpri(EAX, 0);
-	jcc_over(CCz);
-	e_jmpr(EAX);
-	end_over;
-	end_over;
+	if (ISC(rb) && !btst(prognowr, g.con[rb])) {
+		bset(prognoex, g.con[rb]);
+	} else {
+		/* and now, the postwrite */
+		e_cmpri(EDX, 0);
+		e_jcc(g.outl.next, CCz);
+		g.c = &g.outl;
+		e_addri(ESP, 8);
+		e_pushi(g.time);
+		e_pushr(ECX);
+		e_calli(um_postwrite);
+		e_cmpri(EAX, 0);
+		e_jcc(g.inl.next, CCz);
+		e_jmpr(EAX);
+		g.c = &g.inl;
+	}
 }
 
 static void co_add(int ra, int rb, int rc)
@@ -243,11 +259,10 @@ static void co_div(int ra, int rb, int rc)
 		co_ortho(ra, g.con[rb] / g.con[rc]);
 		return;
 	}
-#if 0
 	if (ISC(rc) && g.con[rc]) {
 		p_t d = g.con[rc];
 		int z = __builtin_ctz(d);
-		if (d == 1 << z) {
+		if (d == 1U << z) {
 			e_umld(EAX, rb);
 			e_shrri(EAX, z);
 			e_umst(EAX, ra);
@@ -255,7 +270,7 @@ static void co_div(int ra, int rb, int rc)
 			return;
 		}
 	}
-#endif
+
 	e_umldc(ECX, rc);
 	e_umldc(EAX, rb);
 	e_xorrr(EDX, EDX);
@@ -266,7 +281,6 @@ static void co_div(int ra, int rb, int rc)
 
 static void co_nand(int ra, int rb, int rc)
 {
-	/* punt on the register/immediate stuff */
 	if (ISC(rb)&&ISC(rc)) {
 		co_ortho(ra, ~(g.con[rb] & g.con[rc]));
 		return;
@@ -319,22 +333,65 @@ static void co_input(int rc)
 	noncon(rc);
 }
 
-static void co_load(int rb, int rc)
+static void co__loadguard(int rb, int rc)
 {
-	e_umldc(EAX, rc);
 	e_umldc(EDX, rb);
 	e_cmpri(EDX, 0);
-	jcc_over(CCz+1);
-	e_addri(ESP,4);
-	e_pushr(EAX);
-	e_calli(um_enter);
-	e_jmpr(EAX);
-	end_over;
+	e_jcc(g.outl.next, CCz+1);
+	g.c = &g.outl;
+	e_umld(EAX, rc);
 	e_addri(ESP,8);
 	e_pushr(EAX);
 	e_pushr(EDX);
 	e_calli(um_loadfar);
 	e_jmpr(EAX);
+	g.c = &g.inl;
+}
+
+static void co__load0c(p_t cc)
+{
+	struct block *dst = getblkx(cc);
+
+	if (dst) {
+		e_jmpi(dst->jmp);
+		depblk(g.curblk, dst);
+	} else {
+		e_calli(g.outl.next);
+		g.c = &g.outl;
+		e_subri(ESP, 4);
+		e_pushi((int)g.curblk);
+		e_pushi(cc);
+		e_calli(um_enterdep);
+		e_addri(ESP,12);
+		e_popr(EDX);
+		e_subrr(EAX,EDX); /* rel */
+		e_subri(EDX, 5); /* insn */
+		/* movb [EDX], $E9 */
+		CC(0xC6); Cmodrm(MODnd, 0, EDX); CC(0xE9);
+		/* movl [EDX+1], EAX */
+		CC(0x89); Cmodrm(MODdb, EAX, EDX); CC(1);
+		e_jmpr(EDX);
+		g.c = &g.inl;
+	}	
+}
+
+static void co__load0(int rc)
+{
+	if (ISC(rc)) {
+		co__load0c(g.con[rc]);
+	} else {
+		e_umld(EAX, rc);
+		e_addri(ESP,4);
+		e_pushr(EAX);
+		e_calli(um_enter);
+		e_jmpr(EAX);
+	}	
+}
+
+static void co_load(int rb, int rc)
+{
+	co__loadguard(rb, rc);
+	co__load0(rc);
 }
 
 static void co_ortho(int ri, p_t imm)
@@ -354,6 +411,16 @@ static void co_badness(void)
 	CC(0xCC);
 }
 
+static void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
+{
+	co__loadguard(rs, ri);
+	e_umldc(EAX, rc);
+	e_cmpri(EAX, 0);
+	jcc_over(CCz);
+	co__load0c(ct);
+	end_over;
+	co__load0c(cf);
+}
 
 void umc_codlink(struct cod *from, char *to)
 {
@@ -369,7 +436,6 @@ umc_mkblk(p_t x)
 	p_t i, o, a, b, c, limit;
 	struct block *blk = malloc(sizeof(struct block)), *bli;
 	void *jmpto = 0;
-	unsigned long long nb = 0;
 
 	limit = (thispg + 1) * UM_PGSZ;
 	/* This is no longer strictly necessary; with more
@@ -383,23 +449,53 @@ umc_mkblk(p_t x)
 	blk->begin = x;
 	blk->jmp = here;
 	
+	g.curblk = blk;
 	g.cset = 0;
+	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
-		char *then;
+		char *then, *othen;
 		if (g.time >= proglen) {
 			co_badness(); done = 1; break;
 		}
+		if (btst(prognoex, g.time)) {
+			e_calli(um_destroy_world);
+			e_addri(ESP, 4);
+			e_pushi(g.time);
+			e_calli(um_enter);
+			e_jmpr(EAX);
+			done = 1;
+			break;
+		}
 
-		getcod(&g.c, 1024);
+		getcod(&g.inl, 1024);
+		getcod(&g.outl, 1024);
 		then = here;
+		othen = g.outl.next;
 		i = progdata[g.time];
-		o = i>>28;
-		a = (i>>6)&7;
-		b = (i>>3)&7;
-		c = i&7;
+		o = INSN_OP(i);
+		a = INSN_A(i);
+		b = INSN_B(i);
+		c = INSN_C(i);
 		
 		switch(o) {
-		case 0: co_cmov(a, b, c); break;
+		case 0: 
+			if (g.time + 1 < limit) {
+				p_t ii, oo, bb, cc;
+				ii = progdata[g.time+1];
+				oo = INSN_OP(ii);
+				bb = INSN_B(ii);
+				cc = INSN_C(ii);
+				if (oo == 12 && a == cc && 
+				    a != bb && a != b && a != c
+				    && ISC(a) && ISC(b)) {
+					p_t ct = g.con[b], cf = g.con[a];
+					co_cmov(a, b, c);
+					co_condbr(bb, c, a, ct, cf);
+					++g.time; done = 1; break;
+				}
+			}
+			co_cmov(a, b, c);
+			break;
 		case 1: co_index(a, b, c); break;
 		case 2: co_amend(a, b, c); break;
 		case 3: co_add(a, b, c); break;
@@ -412,13 +508,14 @@ umc_mkblk(p_t x)
 		case 10: co_output(c); break;
 		case 11: co_input(c); break;
 		case 12: co_load(b,c); done = 1; break;
-		case 13: co_ortho((i>>25)&7, i&0x1FFFFFF); break;
+		case 13: co_ortho(INSN_IR(i), INSN_IM(i)); break;
 		default: co_badness(); done = 1; break;
 		}
-		nb += here - then;
+		nbcompiled[0] += here - then;
+		nbcompiled[1] += g.outl.next - othen;
 	}
 	blk->end = g.time;
-	nbcompiled += nb;
+	g.curblk = 0;
 	useblk(blk);
 	if (!done) {
 		if (jmpto) 
@@ -442,7 +539,9 @@ int umc_start(void)
 {
 	int (*entry)(int,int,int,int,int,int,int,int);
 
-	newcod(&g.c);
+	newcod(&g.inl);
+	newcod(&g.outl);
+	g.c = &g.inl;
 	entry = (void*)here;
 	co_enter();
 	umc_enter(0);

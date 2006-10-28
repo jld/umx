@@ -35,14 +35,20 @@ useblk(struct block* blk)
 }
 
 void
+um_destroy_world(void)
+{
+	whine(("total destruction"));
+	um_crtf();
+	um_crti();
+}
+
+void
 delblk(struct block *blk)
 {
 	p_t i;
 
 	if (blk->flags & BLKFL_DEP) {
-		whine(("total destruction"));
-		um_crtf();
-		um_crti();
+		um_destroy_world();
 		return;
 	}
 	
@@ -148,6 +154,19 @@ um_loadfar(p_t seg, p_t idx)
 	return um_enter(idx);
 }
 
+void*
+um_enterdep(p_t x, struct block *src)
+{
+	struct block *blk;
+
+	blk = getblkx(x);
+	if (blk) {
+		depblk(src, blk);
+		return blk->jmp;
+	} else 
+		return umc_enter(x);
+}
+
 /*
   push &{idx}
   cmp $0,&{seg}
@@ -206,6 +225,8 @@ um_crti(void)
 	
 	assert(!prognowr);
 	prognowr = calloc((proglen + 31)/32, 4);
+	assert(!prognoex);
+	prognoex = calloc((proglen + 31)/32, 4);
 }
 
 void
@@ -226,4 +247,7 @@ um_crtf(void)
 	assert(prognowr);
 	free(prognowr);
 	prognowr = 0;
+	assert(prognoex);
+	free(prognoex);
+	prognoex = 0;
 }

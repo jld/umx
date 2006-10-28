@@ -93,8 +93,9 @@ prtimes(void)
 	
 #define SU(tv) ((tv).tv_sec), (long)((tv).tv_usec)
 	fprintf(stderr, "%ld.%06lds user, %ld.%06lds sys, %ld.%06lds wall;"
-	    " %llu bytes compiled.\n",
-	    SU(ru.ru_utime), SU(ru.ru_stime), SU(wall), nbcompiled);
+	    " %llu+%llu bytes compiled.\n",
+	    SU(ru.ru_utime), SU(ru.ru_stime), SU(wall), 
+	    nbcompiled[0], nbcompiled[1]);
 #undef SU
 }
 
@@ -153,6 +154,7 @@ um_ipl(int argc, char** argv)
 	mode_t ft;
 
 	gettimeofday(&ipltime, 0);
+	memset(&nbcompiled, 0, sizeof(nbcompiled));
 	setvbuf(stdout, NULL, _IOLBF, 0);
 	
 #ifdef UM_MPOOL
