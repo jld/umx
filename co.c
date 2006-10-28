@@ -316,6 +316,7 @@ static void co_input(int rc)
 {
 	e_calli(getchar);
 	e_umst(EAX, rc);
+	noncon(rc);
 }
 
 static void co_load(int rb, int rc)
