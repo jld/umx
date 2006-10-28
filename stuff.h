@@ -15,7 +15,7 @@
 typedef uint32_t p_t;
 p_t *progdata;
 p_t proglen;
-unsigned long long nbcompiled;
+unsigned long long nbcompiled[2];
 
 void *um_interp(p_t *gpr, p_t ip);
 
@@ -53,7 +53,7 @@ void yowl(const char* fmt, ...) um_printflike;
 
 #define UM_PROGN "umx"
 #define UM_IDENT "UMX"
-#define UM_VERS "0.5.0"
+#define UM_VERS "0.5.1"
 #define UM_CPU_IDENT "i386"
 
 #endif

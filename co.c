@@ -442,7 +442,6 @@ umc_mkblk(p_t x)
 	p_t i, o, a, b, c, limit;
 	struct block *blk = malloc(sizeof(struct block)), *bli;
 	void *jmpto = 0;
-	unsigned long long nb = 0;
 
 	limit = (thispg + 1) * UM_PGSZ;
 	/* This is no longer strictly necessary; with more
@@ -460,7 +459,7 @@ umc_mkblk(p_t x)
 	g.cset = 0;
 	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
-		char *then;
+		char *then, *othen;
 		if (g.time >= proglen) {
 			co_badness(); done = 1; break;
 		}
@@ -468,6 +467,7 @@ umc_mkblk(p_t x)
 		getcod(&g.inl, 1024);
 		getcod(&g.outl, 1024);
 		then = here;
+		othen = g.outl.next;
 		i = progdata[g.time];
 		o = INSN_OP(i);
 		a = INSN_A(i);
@@ -508,11 +508,11 @@ umc_mkblk(p_t x)
 		case 13: co_ortho(INSN_IR(i), INSN_IM(i)); break;
 		default: co_badness(); done = 1; break;
 		}
-		nb += here - then;
+		nbcompiled[0] += here - then;
+		nbcompiled[1] += g.outl.next - othen;
 	}
 	blk->end = g.time;
 	g.curblk = 0;
-	nbcompiled += nb;
 	useblk(blk);
 	if (!done) {
 		if (jmpto) 
