@@ -53,7 +53,7 @@ void yowl(const char* fmt, ...) um_printflike;
 
 #define UM_PROGN "umx"
 #define UM_IDENT "UMX"
-#define UM_VERS "0.5.1"
+#define UM_VERS "0.5.99"
 #define UM_CPU_IDENT "i386"
 
 #endif

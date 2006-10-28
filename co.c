@@ -209,29 +209,22 @@ static void co_amend(int ra, int rb, int rc)
 	e_umldc(EDX, ra); /* segment */
 	CC(0x89); Cmodrm(MODnd, EAX, RMsib);
 	Csib(Sfour, ECX, EDX);
-	/* and now, the postwrite */
-	e_cmpri(EDX, 0);
-#if 0
-	e_jcc(g.outl.next, CCz);
-	g.c = &g.outl;
-#else
-	jcc_over(CCz+1);
-#endif
-	e_addri(ESP, 8);
-	e_pushi(g.time);
-	e_pushr(ECX);
-	e_calli(um_postwrite);
-	e_cmpri(EAX, 0);
-#if 0
-	e_jcc(g.inl.next, CCz);
-	e_jmpr(EAX);
-	g.c = &g.inl;
-#else 
-	jcc_over(CCz);
-	e_jmpr(EAX);
-	end_over;
-	end_over;
-#endif
+	if (ISC(rb) && !btst(prognowr, g.con[rb])) {
+		bset(prognoex, g.con[rb]);
+	} else {
+		/* and now, the postwrite */
+		e_cmpri(EDX, 0);
+		e_jcc(g.outl.next, CCz);
+		g.c = &g.outl;
+		e_addri(ESP, 8);
+		e_pushi(g.time);
+		e_pushr(ECX);
+		e_calli(um_postwrite);
+		e_cmpri(EAX, 0);
+		e_jcc(g.inl.next, CCz);
+		e_jmpr(EAX);
+		g.c = &g.inl;
+	}
 }
 
 static void co_add(int ra, int rb, int rc)
@@ -462,6 +455,15 @@ umc_mkblk(p_t x)
 		char *then, *othen;
 		if (g.time >= proglen) {
 			co_badness(); done = 1; break;
+		}
+		if (btst(prognoex, g.time)) {
+			e_calli(um_destroy_world);
+			e_addri(ESP, 4);
+			e_pushi(g.time);
+			e_calli(um_enter);
+			e_jmpr(EAX);
+			done = 1;
+			break;
 		}
 
 		getcod(&g.inl, 1024);
