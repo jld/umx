@@ -302,10 +302,18 @@ static void co_halt(void)
 
 static void co_alloc(int rb, int rc)
 {
+	p_t *(*allo)(p_t) = um_alloc;
+
+	if (ISC(rc)) {
+		if (g.con[rc] <= 3)
+			allo = um_alloc3;
+		else if (g.con[rc] <= 7)
+			allo = um_alloc7;
+	}
 	e_umldc(EAX, rc);
 	e_addri(ESP,4);
 	e_pushr(EAX);
-	e_calli(um_alloc);
+	e_calli(allo);
 	e_umst(EAX, rb);
 	noncon(rb);
 }

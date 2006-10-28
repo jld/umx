@@ -27,6 +27,26 @@ static int um_progalloc(p_t);
 static struct timeval ipltime;
 
 p_t *
+um_alloc3(p_t len)
+{
+	p_t *rv;
+	
+	MPOOL_ALLOC(rv, segpool4);
+	rv[0] = len;
+	return rv +1;
+}
+
+p_t *
+um_alloc7(p_t len)
+{
+	p_t *rv;
+	
+	MPOOL_ALLOC(rv, segpool8);
+	rv[0] = len;
+	return rv +1;
+}
+
+p_t *
 um_alloc(p_t len)
 {
 	p_t *rv;
@@ -35,9 +55,9 @@ um_alloc(p_t len)
 	rv = malloc(4 * (len + 1));
 #else
 	if (len <= 3) 
-		MPOOL_ALLOC(rv, segpool4);
+		return um_alloc3(len);
 	else if (len <= 7)
-		MPOOL_ALLOC(rv, segpool8);
+		return um_alloc7(len);
 	else if (len <= 15)
 		MPOOL_ALLOC(rv, segpool16);
 	else if (len <= 31)

@@ -24,6 +24,8 @@ void um_newprog(p_t aid);
 void um_halt(void);
 void um_abend(const char* fmt, ...) um_printflike;
 p_t *um_alloc(p_t len);
+p_t *um_alloc3(p_t len);
+p_t *um_alloc7(p_t len);
 void um_free(p_t *arr);
 
 #define INSN_OP(i) ((i)>>28)
@@ -53,7 +55,7 @@ void yowl(const char* fmt, ...) um_printflike;
 
 #define UM_PROGN "umx"
 #define UM_IDENT "UMX"
-#define UM_VERS "0.6.0"
+#define UM_VERS "0.6.1"
 #define UM_CPU_IDENT "i386"
 
 #endif
