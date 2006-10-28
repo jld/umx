@@ -74,7 +74,9 @@ void mpool_init(struct mpool *mp, int sh)
 {
 	unsigned *sl;
 
+	mp->rsh = sh;
 	sl = mpool_newslab(sh);
+	MPO_POST(sl) = mp;
 	MPO_NEXT(sl) = sl;
 	slab_putout(mp, sl, sh);
 }
@@ -94,9 +96,9 @@ void *mpool_alloc_eop(struct mpool *mp, int sh)
 	} while (sl != mp->slab);
 	
 	sl = mpool_newslab(sh);
+	MPO_POST(sl) = mp;
 	MPO_NEXT(sl) = MPO_NEXT(mp->slab);
 	MPO_NEXT(mp->slab) = sl;
-	
  done:
 	slab_putout(mp, sl, sh);
 	return mpool_alloc(mp, sh);

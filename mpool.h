@@ -15,6 +15,7 @@ struct mpool {
 	unsigned *slab;
 	unsigned *bmap;
 	unsigned ptr;
+	unsigned rsh;
 };
 
 #define MPO_OLS(name) name##_shift
@@ -29,6 +30,7 @@ void mpool_init(struct mpool *, int);
 #define MPO_NEXT(slabp) (*((unsigned**)&((slabp)[(1<<MPOOL_SLSHIFT)-1])))
 #define MPO_BMAP(slabp) (*((unsigned**)&((slabp)[(1<<MPOOL_SLSHIFT)-2])))
 #define MPO_FREE(slabp) ((slabp)[(1<<MPOOL_SLSHIFT)-3])
+#define MPO_POST(slabp) (*((struct mpool**)&((slabp)[(1<<MPOOL_SLSHIFT)-4])))
 #define MPO_BMW(shift) ((1U<<MPOOL_SLSHIFT)>>((shift)+5))
 
 #define MPOOL_ALLOC(var,name) \
@@ -59,5 +61,10 @@ static inline void mpool_free(void *ptr, struct mpool *po, int sh) {
 	++MPO_FREE(sl);
 }
 
+static inline void mpool_xfree(void *ptr) {
+	unsigned *sl = MPO_PTS(ptr);
+	struct mpool *po = MPO_POST(sl);
+	mpool_free(ptr, po, po->rsh);
+}
 
 #endif

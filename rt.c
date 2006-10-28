@@ -83,14 +83,8 @@ void
 um_free(p_t *seg)
 {
 #ifdef UM_MPOOL
-	if (seg[-1] <= 3)
-		MPOOL_FREE(segpool4, seg-1);
-	else if (seg[-1] <= 7)
-		MPOOL_FREE(segpool8, seg-1);
-	else if (seg[-1] <= 15)
-		MPOOL_FREE(segpool16, seg-1);
-	else if (seg[-1] <= 31)
-		MPOOL_FREE(segpool32, seg-1);
+	if (seg[-1] <= 31)
+		mpool_xfree(seg-1);
 	else
 #endif
 		free(seg - 1);
