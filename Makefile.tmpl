@@ -7,7 +7,7 @@ CWARN=-Wall -W
 CDBG=
 CFLAGS=$(COPT) $(CWARN) $(CDBG) $(CDEFS) $(XCF)
 
-OBJS=rt.o util.o crt.o co.o main.o mpool.o
+OBJS=rt.o util.o crt.o co.o main.o mpool.o vers.o
 umx: $(OBJS)
 	$(CC) $(CFLAGS) $(LFLAGS) $(OBJS) `sh oslflags.sh` -o umx
 

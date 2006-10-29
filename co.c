@@ -22,11 +22,12 @@ struct {
 #define ISZ(r) (g.znz & ZMASK(r))
 #define ISNZ(r) (g.znz & NZMASK(r))
 #define ISUK(r) (0 == (g.znz & ZNZMASK(r)))
+#define QZMASK(r,v) ((v)?NZMASK(r):ZMASK(r))
 
 SIV setcon(int r, p_t v) {
 	g.cset |= 1 << r; g.con[r] = v;
 	g.znz &= ~ZNZMASK(r);
-	g.znz |= v ? NZMASK(r) : ZMASK(r);
+	g.znz |= QZMASK(r,v);
 }
 SIV noncon(int r) { g.cset &= ~(1 << r); g.znz &= ~ZNZMASK(r); }
 SIV setz(int r) { setcon(r, 0); }
@@ -481,13 +482,19 @@ static void co_badness(void)
 
 static void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
 {
+	znz_t znz = (g.znz & ~ZNZMASK(ri)) | ZMASK(rs);
+
 	co__loadguard(rs, ri);
 	e_umldc(EAX, rc);
 	e_cmpri(EAX, 0);
 	jcc_over(CCz);
-	co__load0c(ct, g.znz | NZMASK(rc) | ZMASK(rs));
+	e_movri(EAX, ct);
+	e_umst(EAX, ri);
+	co__load0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
 	end_over;
-	co__load0c(cf, g.znz | ZMASK(rc) | ZMASK(rs));
+	e_movri(EAX, cf);
+	e_umst(EAX, ri);
+	co__load0c(cf, znz | QZMASK(ri,ct) | ZMASK(rc));
 }
 
 void umc_codlink(struct cod *from, char *to)
@@ -561,7 +568,6 @@ umc_mkblk(p_t x, znz_t znz)
 				    a != bb && a != b && a != c
 				    && ISC(a) && ISC(b)) {
 					p_t ct = g.con[b], cf = g.con[a];
-					co_cmov(a, b, c);
 					co_condbr(bb, c, a, ct, cf);
 					++g.time; done = 1; break;
 				}

@@ -209,7 +209,7 @@ um_ipl(int argc, char** argv)
 	}
 	free(es);
 	
-	fprintf(stderr, UM_IDENT"/"UM_CPU_IDENT" "UM_VERS" booting...\n");
+	fprintf(stderr, UM_IDENT"/"UM_CPU_IDENT" %s booting...\n", um_vers);
 	// cpu_proginit();
 }
 
