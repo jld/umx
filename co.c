@@ -119,7 +119,10 @@ SIV e_xorri(int r, int i) {
 	else e_xxxri(r, i, 6, 0x35);
 }
 SIV e_cmpri(int r, int i) {
-	e_xxxri(r, i, 7, 0x3D);
+	if (i == 0) { /* test %r,%r */
+		CC(0x85); Cmodrm(MODreg, r, r);
+	} else
+		e_xxxri(r, i, 7, 0x3D);
 }
 
 SIV e_shxri(int r, int i, int ro) {
