@@ -75,13 +75,13 @@ getblk(p_t x)
 }
 
 struct block*
-getblkx(p_t x)
+getblkx(p_t x, znz_t znz)
 {
 	struct block **head, *p;
 
 	head = &progblks[x / UM_PGSZ];
 	for (p = *head; p; p = p->next)
-		if (p->begin == x) {
+		if (p->begin == x && znblk(p, znz)) {
 			remblk(p);
 			insblk(p, head);
 			return p;
@@ -97,7 +97,7 @@ depblk(struct block *src, struct block* dst)
 }
 
 void*
-um_postwrite(p_t target, p_t source)
+um_postwrite(p_t target, p_t source, znz_t znz)
 {
 	struct block *tblk;
 	int yow, ayow = 0;
@@ -114,73 +114,44 @@ um_postwrite(p_t target, p_t source)
 	}
 
 	if (!btst(prognowr, source))
-		return umc_enter(source + 1);
+		return umc_enter(source + 1, znz);
 	else
 		return 0;
 }
 
-
-/*
-  cmp $0,&{segment}
-  jnz end
-  push &{source}
-  push &{target}
-  call um_postwrite
-  add $8,%esp
-  cmp $0,%eax
-  jz end
-  jmp *%eax
-*/
-
-
 void*
-um_enter(p_t x)
+um_enter(p_t x, znz_t znz)
 {
 	struct block *blk;
 
-	blk = getblkx(x);
+	blk = getblkx(x, znz);
 	if (blk)
 		return blk->jmp;
 	else 
-		return umc_enter(x);
+		return umc_enter(x, znz);
 }
 
 void*
-um_loadfar(p_t seg, p_t idx)
+um_loadfar(p_t seg, p_t idx, znz_t znz)
 {
 	um_crtf();
 	um_newprog(seg);
 	um_crti();
-	return um_enter(idx);
+	return um_enter(idx, znz);
 }
 
 void*
-um_enterdep(p_t x, struct block *src)
+um_enterdep(p_t x, struct block *src, znz_t znz)
 {
 	struct block *blk;
 
-	blk = getblkx(x);
+	blk = getblkx(x, znz);
 	if (blk) {
 		depblk(src, blk);
 		return blk->jmp;
 	} else 
-		return umc_enter(x);
+		return umc_enter(x, znz);
 }
-
-/*
-  push &{idx}
-  cmp $0,&{seg}
-  jne AAIIGGHH
-  call um_enter
-  add 4,%esp
-  jmp *%eax
-AAIIGGHH:
-  push &{seg}
-  call um_loadfar
-  add 8,%esp
-  jmp *%eax   # XXX
-*/
-
 
 
 #define COD_SEG 1048576

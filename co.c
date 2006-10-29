@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "stuff.h"
@@ -10,13 +11,26 @@ struct {
 	p_t time;
 	struct block *curblk;
 	p_t con[8];
+	znz_t znz;
 	uint8_t cset;
 } g;
 #define here (g.c->next)
 #define ISC(r) (g.cset&(1<<(r)))
+#define ZMASK(r) (1<<(r))
+#define NZMASK(r) (256<<(r))
+#define ZNZMASK(r) (257<<(r))
+#define ISZ(r) (g.znz & ZMASK(r))
+#define ISNZ(r) (g.znz & NZMASK(r))
+#define ISUK(r) (0 == (g.znz & ZNZMASK(r)))
 
-SIV setcon(int r, p_t v) { g.cset |= 1 << r; g.con[r] = v; }
-SIV noncon(int r) { g.cset &= ~(1 << r); }
+SIV setcon(int r, p_t v) {
+	g.cset |= 1 << r; g.con[r] = v;
+	g.znz &= ~ZNZMASK(r);
+	g.znz |= v ? NZMASK(r) : ZMASK(r);
+}
+SIV noncon(int r) { g.cset &= ~(1 << r); g.znz &= ~ZNZMASK(r); }
+SIV setz(int r) { setcon(r, 0); }
+SIV setnz(int r) { noncon(r); g.znz |= NZMASK(r); }
 
 #define CC(ch) (*here++ = (ch))
 #define CW(w) (((int*)(here+=4))[-1] = (w))
@@ -184,7 +198,20 @@ static void co_enter(void)
 
 static void co_cmov(int ra, int rb, int rc)
 {
-	if (ra != rb) {
+	if (ISZ(rc) || ra == rb)
+		return;
+	if (ISNZ(rc)) {
+		if (ISC(rb)) {
+			co_ortho(ra, g.con[rb]);
+			return;
+		}
+		e_umld(EAX, rb);
+		e_umst(EAX, ra);
+		noncon(ra);
+		if (ISNZ(rb))
+			setnz(ra);
+	} else {
+		int nz = ISNZ(ra) && ISNZ(rb);
 		e_umldc(EAX, rc);
 		e_cmpri(EAX, 0);
 		jcc_over(CCz);
@@ -192,6 +219,8 @@ static void co_cmov(int ra, int rb, int rc)
 		e_umst(EAX, ra);
 		end_over;
 		noncon(ra);
+		if (nz)
+			setnz(ra);
 	}
 }
 
@@ -205,6 +234,16 @@ static void co_index(int ra, int rb, int rc)
 	noncon(ra);
 }
 
+static void co__postwrite(int mrs, int znz)
+{
+	e_addri(ESP, 12);
+	e_pushi(znz);
+	e_pushi(g.time);
+	e_pushr(mrs);
+	e_calli(um_postwrite);
+	e_cmpri(EAX, 0);
+}
+
 static void co_amend(int ra, int rb, int rc)
 {
 	e_umldc(EAX, rc); /* data */
@@ -212,18 +251,24 @@ static void co_amend(int ra, int rb, int rc)
 	e_umldc(EDX, ra); /* segment */
 	CC(0x89); Cmodrm(MODnd, EAX, RMsib);
 	Csib(Sfour, ECX, EDX);
-	if (ISC(rb) && !btst(prognowr, g.con[rb])) {
-		bset(prognoex, g.con[rb]);
+	if (ISNZ(ra))
+		return;
+	if (ISZ(ra)) {
+		if (ISC(rb) && !btst(prognowr, g.con[rb])) {
+			bset(prognoex, g.con[rb]);
+		} else {
+			/* and now, the postwrite */
+			co__postwrite(ECX, g.znz);
+			jcc_over(CCz);
+			e_jmpr(EAX);
+			end_over;
+		} 
 	} else {
 		/* and now, the postwrite */
 		e_cmpri(EDX, 0);
 		e_jcc(g.outl.next, CCz);
 		g.c = &g.outl;
-		e_addri(ESP, 8);
-		e_pushi(g.time);
-		e_pushr(ECX);
-		e_calli(um_postwrite);
-		e_cmpri(EAX, 0);
+		co__postwrite(ECX, g.znz | ZMASK(ra));
 		e_jcc(g.inl.next, CCz);
 		e_jmpr(EAX);
 		g.c = &g.inl;
@@ -299,6 +344,7 @@ static void co_nand(int ra, int rb, int rc)
 static void co_halt(void)
 {
 	e_xorrr(EAX,EAX);
+	e_addri(ESP, 12);
 	e_popr(EDI); e_popr(ESI); e_popr(EBX);
 	e_leave(); e_ret();
 }
@@ -319,6 +365,7 @@ static void co_alloc(int rb, int rc)
 	e_calli(allo);
 	e_umst(EAX, rb);
 	noncon(rb);
+	setnz(rb);
 }
 
 static void co_free(int rc)
@@ -327,6 +374,7 @@ static void co_free(int rc)
 	e_addri(ESP,4);
 	e_pushr(EAX);
 	e_calli(um_free);
+	setnz(rc); /* this info could go backwards */
 }
 
 static void co_output(int rc)
@@ -346,22 +394,29 @@ static void co_input(int rc)
 
 static void co__loadguard(int rb, int rc)
 {
+	if (ISZ(rb))
+		return;
 	e_umldc(EDX, rb);
-	e_cmpri(EDX, 0);
-	e_jcc(g.outl.next, CCz+1);
-	g.c = &g.outl;
-	e_umld(EAX, rc);
-	e_addri(ESP,8);
+	if (!ISNZ(rb)) {
+		e_cmpri(EDX, 0);
+		e_jcc(g.outl.next, CCz+1);
+		g.c = &g.outl;
+	}
+	e_umldc(EAX, rc);
+	e_addri(ESP,12);
+	e_pushi(g.znz | NZMASK(rb));
 	e_pushr(EAX);
 	e_pushr(EDX);
 	e_calli(um_loadfar);
 	e_jmpr(EAX);
-	g.c = &g.inl;
+	if (!ISNZ(rb)) {
+		g.c = &g.inl;
+	}
 }
 
-static void co__load0c(p_t cc)
+static void co__load0c(p_t cc, znz_t znz)
 {
-	struct block *dst = getblkx(cc);
+	struct block *dst = getblkx(cc, znz);
 
 	if (dst) {
 		e_jmpi(dst->jmp);
@@ -369,7 +424,8 @@ static void co__load0c(p_t cc)
 	} else {
 		e_calli(g.outl.next);
 		g.c = &g.outl;
-		e_subri(ESP, 4);
+		/* e_subri(ESP, 0); */
+		e_pushi(znz);
 		e_pushi((int)g.curblk);
 		e_pushi(cc);
 		e_calli(um_enterdep);
@@ -386,13 +442,14 @@ static void co__load0c(p_t cc)
 	}	
 }
 
-static void co__load0(int rc)
+static void co__load0(int rc, znz_t znz)
 {
 	if (ISC(rc)) {
-		co__load0c(g.con[rc]);
+		co__load0c(g.con[rc], znz);
 	} else {
 		e_umld(EAX, rc);
-		e_addri(ESP,4);
+		e_addri(ESP,8);
+		e_pushi(znz);
 		e_pushr(EAX);
 		e_calli(um_enter);
 		e_jmpr(EAX);
@@ -402,7 +459,7 @@ static void co__load0(int rc)
 static void co_load(int rb, int rc)
 {
 	co__loadguard(rb, rc);
-	co__load0(rc);
+	co__load0(rc, g.znz | ZMASK(rb));
 }
 
 static void co_ortho(int ri, p_t imm)
@@ -428,9 +485,9 @@ static void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
 	e_umldc(EAX, rc);
 	e_cmpri(EAX, 0);
 	jcc_over(CCz);
-	co__load0c(ct);
+	co__load0c(ct, g.znz | NZMASK(rc) | ZMASK(rs));
 	end_over;
-	co__load0c(cf);
+	co__load0c(cf, g.znz | ZMASK(rc) | ZMASK(rs));
 }
 
 void umc_codlink(struct cod *from, char *to)
@@ -441,7 +498,7 @@ void umc_codlink(struct cod *from, char *to)
 }
 
 static struct block*
-umc_mkblk(p_t x)
+umc_mkblk(p_t x, znz_t znz)
 {
 	int done = 0, thispg = x/UM_PGSZ;
 	p_t i, o, a, b, c, limit;
@@ -459,9 +516,12 @@ umc_mkblk(p_t x)
 	
 	blk->begin = x;
 	blk->jmp = here;
+	blk->znz = znz;
 	
 	g.curblk = blk;
-	g.cset = 0;
+	g.znz = znz;
+	g.cset = znz & 255;
+	memset(&g.con, 0, sizeof(g.con));
 	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
 		char *then, *othen;
@@ -470,7 +530,8 @@ umc_mkblk(p_t x)
 		}
 		if (btst(prognoex, g.time)) {
 			e_calli(um_destroy_world);
-			e_addri(ESP, 4);
+			e_addri(ESP, 8);
+			e_pushi(g.znz);
 			e_pushi(g.time);
 			e_calli(um_enter);
 			e_jmpr(EAX);
@@ -534,16 +595,16 @@ umc_mkblk(p_t x)
 		else {
 			struct block *bln;
 			/* fallthrough to */
-			bln = umc_mkblk(g.time);
+			bln = umc_mkblk(g.time, g.znz);
 			depblk(blk, bln);
 		}
 	}
 	return blk;
 }
 
-void *umc_enter(p_t x)
+void *umc_enter(p_t x, znz_t znz)
 {
-	return umc_mkblk(x)->jmp;
+	return umc_mkblk(x, znz)->jmp;
 }
 
 int umc_start(void)
@@ -555,7 +616,7 @@ int umc_start(void)
 	g.c = &g.inl;
 	entry = (void*)here;
 	co_enter();
-	umc_enter(0);
+	umc_enter(0, 255);
 	return entry(0,0,0,0,0,0,0,0);
 }
 
