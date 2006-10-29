@@ -492,8 +492,6 @@ static void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
 	e_umst(EAX, ri);
 	co__load0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
 	end_over;
-	e_movri(EAX, cf);
-	e_umst(EAX, ri);
 	co__load0c(cf, znz | QZMASK(ri,ct) | ZMASK(rc));
 }
 
