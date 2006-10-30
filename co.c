@@ -153,6 +153,8 @@ SIV e_cmpri(int r, int i) {
 }
 
 SIV e_shxri(int r, int i, int ro) {
+	if (i == 0)
+		return;
 	if (i == 1) {
 		CC(0xD1); Cmodrm(MODreg, ro, r);
 	} else {
@@ -162,6 +164,35 @@ SIV e_shxri(int r, int i, int ro) {
 
 SIV e_shrri(int r, int i) { e_shxri(r, i, 5); }
 SIV e_shlri(int r, int i) { e_shxri(r, i, 4); }
+
+SIV e_mulri(int r, p_t i) {
+	int z = __builtin_ctz(i);
+	p_t m = i >> z;
+
+	if (i == 0) {
+		e_xorrr(r, r);
+		return;
+	}
+	switch(m) {
+	case 9:
+		CC(0x8D); Cmodrm(MODnd, r, RMsib); Csib(Seight, r, r);
+		goto shl;
+	case 5:
+		CC(0x8D); Cmodrm(MODnd, r, RMsib); Csib(Sfour, r, r);
+		goto shl;
+	case 3:
+		CC(0x8D); Cmodrm(MODnd, r, RMsib); Csib(Stwo, r, r);
+	case 1: shl:
+		e_shlri(r, z);
+		break;
+	default:
+		if (i < 128) {
+			CC(0x6B); Cmodrm(MODreg, r, r); CC(i);
+		} else {
+			CC(0x69); Cmodrm(MODreg, r, r); CW(i);
+		}
+	}
+}
 
 
 SIV e_jmpr(int r) {
@@ -394,20 +425,20 @@ static void co_cmov(int ra, int rb, int rc)
 	}
 }
 
-static void co__ldst(char opc, int rs, int ri, int rd)
+static void co__ldst(char opc, int rs, int ri, int rd, int(*dget)(int))
 {
 	int ms, md, mi;
 	
-	md = ra_mgetv(rd);
-
  	if (ISC(ri)) {
 		p_t offs = g.con[ri] * 4;
 		if (ISC(rs)) {
 			offs += g.con[rs];
+			md = dget(rd);
 			CC(opc); Cmodrm(MODnd, md, RMabs); CW(offs);
 			return;
 		}
 		ms = ra_mgetv(rs);
+		md = dget(rd);
 		CC(opc);
 		if (ISB((int)offs)) {
 			Cmodrm(MODdb, md, ms); CC(offs);
@@ -417,15 +448,14 @@ static void co__ldst(char opc, int rs, int ri, int rd)
 	} else {
 		mi = ra_mgetv(ri);
 		ms = ra_mgetv(rs);
+		md = dget(rd);
 		CC(opc); Cmodrm(MODnd, md, RMsib); Csib(Sfour, mi, ms);
 	}
 }
 
 static void co_index(int ra, int rb, int rc)
 {
-	if (ra != rb && ra != rc)
-		(void)ra_mgetvd(ra); /* make resident; skip load */
-	co__ldst(0x8B, rb, rc, ra);
+	co__ldst(0x8B, rb, rc, ra, ra_mgetvd);
 	ra_vdirty(ra);
 	noncon(ra);
 }
@@ -447,7 +477,7 @@ static void co_amend(int ra, int rb, int rc)
 {
 	int ma, mb;
 	
-	co__ldst(0x89, ra, rb, rc);
+	co__ldst(0x89, ra, rb, rc, ra_mgetv);
 
 	if (ISNZ(ra))
 		return;
@@ -488,11 +518,16 @@ static void co_add(int ra, int rb, int rc)
 		co_ortho(ra, g.con[rb] + g.con[rc]);
 		return;
 	}
-	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
+	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	mc = ra_mgetv(rc);
-	ra_mchange(mab, ra);
-	e_addrr(mab, mc);
+	if (ISC(rc)) {
+		ra_mchange(mab, ra);
+		e_addri(mab, g.con[rc]);
+	} else {
+		mc = ra_mgetv(rc);
+		ra_mchange(mab, ra);
+		e_addrr(mab, mc);
+	}
 	noncon(ra);
 }
 
@@ -504,11 +539,16 @@ static void co_mul(int ra, int rb, int rc)
 		co_ortho(ra, g.con[rb] * g.con[rc]);
 		return;
 	}
-	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
+	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	mc = ra_mgetv(rc);
-	ra_mchange(mab, ra);
-	e_mulrr(mab, mc);
+	if (ISC(rc)) {
+		ra_mchange(mab, ra);
+		e_mulri(mab, g.con[rc]);
+	} else {
+		mc = ra_mgetv(rc);
+		ra_mchange(mab, ra);
+		e_mulrr(mab, mc);
+	}
 	noncon(ra);
 }
 
@@ -552,12 +592,17 @@ static void co_nand(int ra, int rb, int rc)
 		co_ortho(ra, ~(g.con[rb] & g.con[rc]));
 		return;
 	}
-	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
+	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (rb != rc) {
-		mc = ra_mgetv(rc);
-		ra_mchange(mab, ra);
-		e_andrr(mab, mc);
+		if (ISC(rc)) {
+			ra_mchange(mab, ra);
+			e_andri(mab, g.con[rc]);
+		} else {
+			mc = ra_mgetv(rc);
+			ra_mchange(mab, ra);
+			e_andrr(mab, mc);
+		}
 	} else {
 		ra_mchange(mab, ra);
 	}
@@ -826,7 +871,7 @@ umc_mkblk(p_t x, znz_t znz)
 		case 4: co_mul(a, b, c); break;
 		case 5: co_div(a, b, c); break;
 		case 6: co_nand(a, b, c); break;
-		case 7: co_halt(); break;
+		case 7: co_halt(); done = 1; break;
 		case 8: co_alloc(b, c); break;
 		case 9: co_free(c); break;
 		case 10: co_output(c); break;

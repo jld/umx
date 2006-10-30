@@ -1,1 +1,1 @@
-const char *um_vers = "0.8.1";
+const char *um_vers = "0.8.2";
