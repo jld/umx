@@ -846,6 +846,7 @@ umc_mkblk(p_t x, znz_t znz)
 		a = INSN_A(i);
 		b = INSN_B(i);
 		c = INSN_C(i);
+		bset(prognowr, g.time);
 		
 		switch(o) {
 		case 0: 
