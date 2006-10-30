@@ -5,17 +5,24 @@
 #include "crt.h"
 
 #define SIV static inline void
+#define NMREG 8
+#define NOREG (-1)
+static const int8_t regpref[];
+static const int nregpref;
 
 struct {
 	struct cod inl, outl, *c;
 	p_t time;
 	struct block *curblk;
-	p_t con[8];
+	p_t con[8], mlru[8];
 	znz_t znz;
-	uint8_t cset;
+	int8_t vtom[8], mtov[NMREG];
+	uint8_t cset, rset, mset;
 } g;
 #define here (g.c->next)
 #define ISC(r) (g.cset&(1<<(r)))
+#define ISR(r) (g.rset&(1<<(r)))
+#define ISM(r) (g.mset&(1<<(r)))
 #define ZMASK(r) (1<<(r))
 #define NZMASK(r) (256<<(r))
 #define ZNZMASK(r) (257<<(r))
@@ -36,6 +43,8 @@ SIV setnz(int r) { noncon(r); g.znz |= NZMASK(r); }
 #define CC(ch) (*here++ = (ch))
 #define CW(w) (((int*)(here+=4))[-1] = (w))
 
+/* --- */
+
 #define EAX 0
 #define ECX 1
 #define EDX 2
@@ -44,6 +53,9 @@ SIV setnz(int r) { noncon(r); g.znz |= NZMASK(r); }
 #define EBP 5
 #define ESI 6
 #define EDI 7
+
+static const int8_t regpref[] = { EBX, ESI, EDI, ECX, EAX, EDX };
+static const int nregpref = 6;
 
 #define MODnd 0
 #define MODdb 1
@@ -180,12 +192,164 @@ SIV e_jcc(void* i, int cc) {
 
 SIV e_umld(int mr, int ur) { CC(0x8B); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
 SIV e_umst(int mr, int ur) { CC(0x89); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
+SIV e_umsti(p_t im, int ur)
+{ assert(ur>=0 && ur<8); CC(0xC7); Cmodrm(MODdb,0,EBP); CC(DofU(ur)); CW(im); }
 
 SIV e_umldc(int mr, int ur) 
 { if (ISC(ur)) e_movri(mr,g.con[ur]); else e_umld(mr,ur); }
 
 #define jcc_over(cc) e_jcc(here, cc); do { char *there = here
 #define end_over there[-1] = here - there; } while(0)
+
+/* --- */
+
+SIV ra_mtouch(int m) { g.mlru[m] = g.time; }
+
+static void ra_vflush(int v)
+{ /* flush deferred store */
+	if (!ISM(v)) {
+		if (ISR(v)) 
+			e_umst(g.vtom[v], v);
+		else 
+			e_umsti(g.con[v], v);
+		g.mset |= (1<<v);
+	}
+}
+
+static void ra_mclear(int m)
+{ /* I need *this* mreg */
+	int v = g.mtov[m];
+
+	if (v < 0)
+		return;
+	
+	ra_vflush(v);
+	g.rset &= ~(1<<v);
+	g.mtov[m] = -1;
+}
+
+/* ...and I need nothing else to get it for a while */
+SIV ra_mhold(int m) { ra_mclear(m); g.mtov[m] = -2; }
+SIV ra_mrelse(int m) { assert(g.mtov[m] == -2); g.mtov[m] = -1; }
+
+static int ra__dislike(int m)
+{ /* how much do I want to eject this mreg? */
+	int v, d;
+	
+	v = g.mtov[m];
+	if (v < -1) /* it's held; don't eject */
+		return -1;
+	if (v < 0) /* it'd free; eject! */
+		return 1<<30;
+	d = g.time - g.mlru[m];
+	d = d - (ISM(v) ? (d/2) : 0) + (ISC(v) ? 0 : d);
+	return d;
+}
+
+static int ra_mget(void)
+{ /* get me some mreg */
+	int i, d, m, dd, mm;
+
+	m = -1; d = -2;
+	for (i = 0; i < nregpref; ++i) {
+		mm = regpref[i];
+		dd = ra__dislike(mm);
+		if (dd > d) {
+			d = dd;
+			m = mm;
+		}
+	}
+	assert(m >= 0 && m < NMREG);
+	assert(d > 0); /* mregs used for this insn (or held) are off-limits */
+	ra_mclear(m);
+	return m;
+}
+
+static void ra_ldvm(int v, int m)
+{ /* get me this vreg in *this* mreg */ 
+	ra_mclear(m);
+	if (ISR(v)) {
+		e_movrr(m, g.vtom[v]);
+		g.mtov[g.vtom[v]] = -1;
+	} else
+		e_umldc(m, v);
+	g.rset |= (1<<v);
+	g.mtov[m] = v;
+	g.vtom[v] = m;
+	g.mlru[m] = g.time;
+}
+
+static int ra_mgetv(int v)
+{ /* get me this vreg in some mreg */
+	int m;
+	
+	if (ISR(v)) {
+		m = g.vtom[v];
+		assert(m >= 0 && m < NMREG);
+		g.mlru[m] = g.time;
+	} else {
+		m = ra_mget();
+		ra_ldvm(v, m);
+	}
+	return m;
+}
+
+static void ra_vflushall()
+{ /* what it says on the tin */
+	int i;
+	
+	for (i = 0; i < 8; ++i)
+		ra_vflush(i);
+}
+
+SIV ra_vdirty(int v) { g.mset &= ~(1<<v); }
+
+static void ra_vinval(int v)
+{
+	if (ISR(v)) {
+		int m = g.vtom[v];
+		g.mtov[m] = -1;
+		g.rset &= ~(1<<v);
+	}
+	ra_vdirty(v);
+}
+
+static void ra_mchange(int m, int v)
+{ /* this mreg will shortly represent the contents of this vreg instead of
+     whatever it was doing before; also, forget whatever the vreg used to be */
+	if (ISR(v)) {
+		int om = g.vtom[v];
+		if (om == m) goto done;
+		g.mtov[om] = -1;
+	}
+	ra_mclear(m);
+	g.rset |= (1<<v);
+	g.mtov[m] = v;
+	g.vtom[v] = m;
+ done:
+	ra_mtouch(m);
+	ra_vdirty(v);
+}
+
+static int ra_mgetvd(int v)
+{ /* get some mreg to hold this vreg, but I don't care what's in it, because
+     I'm about to overwrite it */
+	int m;
+
+	if (ISR(v))
+		m = g.vtom[v];
+	else {
+		m = ra_mget();
+		g.vtom[v] = m;
+		g.mtov[m] = v;
+	}
+	ra_mtouch(m);
+	ra_vdirty(v);
+	g.rset |= (1<<v);
+	return m;	
+}
+
+/* --- */
 
 static void co_ortho(int, p_t);
 
@@ -199,6 +363,8 @@ static void co_enter(void)
 
 static void co_cmov(int ra, int rb, int rc)
 {
+	int ma, mb, mc;
+
 	if (ISZ(rc) || ra == rb)
 		return;
 	if (ISNZ(rc)) {
@@ -206,19 +372,22 @@ static void co_cmov(int ra, int rb, int rc)
 			co_ortho(ra, g.con[rb]);
 			return;
 		}
-		e_umld(EAX, rb);
-		e_umst(EAX, ra);
+		mb = ra_mgetv(rb);
+		ra_mchange(mb, ra);
 		noncon(ra);
 		if (ISNZ(rb))
 			setnz(ra);
 	} else {
 		int nz = ISNZ(ra) && ISNZ(rb);
-		e_umldc(EAX, rc);
-		e_cmpri(EAX, 0);
+		mc = ra_mgetv(rc);
+		/* Ick. */
+		ma = ra_mgetv(ra);
+		mb = ra_mgetv(rb);
+		e_cmpri(mc, 0);
 		jcc_over(CCz);
-		e_umldc(EAX, rb);
-		e_umst(EAX, ra);
+		e_movrr(ma, mb);
 		end_over;
+		ra_vdirty(ra);
 		noncon(ra);
 		if (nz)
 			setnz(ra);
@@ -227,49 +396,59 @@ static void co_cmov(int ra, int rb, int rc)
 
 static void co_index(int ra, int rb, int rc)
 {
-	e_umldc(ECX, rc); /* index */
-	e_umldc(EDX, rb); /* segment */
-	CC(0x8B); Cmodrm(MODnd, EAX, RMsib);
-	Csib(Sfour, ECX, EDX);
-	e_umst(EAX, ra); /* data */
+	int ma, mb, mc;
+	mc = ra_mgetv(rc); /* index */
+	mb = ra_mgetv(rb); /* segment */
+	ma = ra_mgetvd(ra); /* data */
+	CC(0x8B); Cmodrm(MODnd, ma, RMsib);
+	Csib(Sfour, mc, mb);
 	noncon(ra);
 }
 
-static void co__postwrite(int mrs, int znz)
+static void co__cclear(void)
+{ ra_mclear(EAX); ra_mclear(ECX); ra_mclear(EDX); }
+
+static void co__postwrite(int mi, int znz)
 {
 	e_addri(ESP, 12);
 	e_pushi(znz);
 	e_pushi(g.time);
-	e_pushr(mrs);
+	e_pushr(mi);
 	e_calli(um_postwrite);
 	e_cmpri(EAX, 0);
 }
 
 static void co_amend(int ra, int rb, int rc)
 {
-	e_umldc(EAX, rc); /* data */
-	e_umldc(ECX, rb); /* index */
-	e_umldc(EDX, ra); /* segment */
-	CC(0x89); Cmodrm(MODnd, EAX, RMsib);
-	Csib(Sfour, ECX, EDX);
+	int ma, mb, mc;
+
+	mc = ra_mgetv(rc); /* data */
+	mb = ra_mgetv(rb); /* index */
+	ma = ra_mgetv(ra); /* segment */
+	CC(0x89); Cmodrm(MODnd, mc, RMsib);
+	Csib(Sfour, mb, ma);
 	if (ISNZ(ra))
 		return;
 	if (ISZ(ra)) {
 		if (ISC(rb) && !btst(prognowr, g.con[rb])) {
 			bset(prognoex, g.con[rb]);
 		} else {
+			ra_vflushall();
+			co__cclear();
 			/* and now, the postwrite */
-			co__postwrite(ECX, g.znz);
+			co__postwrite(mb, g.znz);
 			jcc_over(CCz);
 			e_jmpr(EAX);
 			end_over;
 		} 
 	} else {
+		ra_vflushall();
+		co__cclear();
 		/* and now, the postwrite */
-		e_cmpri(EDX, 0);
+		e_cmpri(ma, 0);
 		e_jcc(g.outl.next, CCz);
 		g.c = &g.outl;
-		co__postwrite(ECX, g.znz | ZMASK(ra));
+		co__postwrite(mb, g.znz | ZMASK(ra));
 		e_jcc(g.inl.next, CCz);
 		e_jmpr(EAX);
 		g.c = &g.inl;
@@ -278,72 +457,88 @@ static void co_amend(int ra, int rb, int rc)
 
 static void co_add(int ra, int rb, int rc)
 {
+	int mab, mc, rt;
+	
 	if (ISC(rb)&&ISC(rc)) {
 		co_ortho(ra, g.con[rb] + g.con[rc]);
 		return;
 	}
-	e_umldc(EAX, rb);
-	e_umldc(EDX, rc);
-	e_addrr(EAX, EDX);
-	e_umst(EAX, ra);
+	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
+	mab = ra_mgetv(rb);
+	mc = ra_mgetv(rc);
+	ra_mchange(mab, ra);
+	e_addrr(mab, mc);
 	noncon(ra);
 }
 
 static void co_mul(int ra, int rb, int rc)
 {
+	int mab, mc, rt;
+
 	if (ISC(rb)&&ISC(rc)) {
 		co_ortho(ra, g.con[rb] * g.con[rc]);
 		return;
 	}
-	e_umldc(EAX, rb);
-	e_umldc(EDX, rc);
-	e_mulrr(EAX, EDX);
-	e_umst(EAX, ra);
+	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
+	mab = ra_mgetv(rb);
+	mc = ra_mgetv(rc);
+	ra_mchange(mab, ra);
+	e_mulrr(mab, mc);
 	noncon(ra);
 }
 
 static void co_div(int ra, int rb, int rc)
 {
+	int mc;
+
 	if (ISC(rb)&&ISC(rc) && g.con[rc]) {
 		co_ortho(ra, g.con[rb] / g.con[rc]);
 		return;
 	}
 	if (ISC(rc) && g.con[rc]) {
 		p_t d = g.con[rc];
-		int z = __builtin_ctz(d);
+		int z = __builtin_ctz(d), mab;
 		if (d == 1U << z) {
-			e_umld(EAX, rb);
-			e_shrri(EAX, z);
-			e_umst(EAX, ra);
+			mab = ra_mgetv(rb);
+			ra_mchange(mab, ra);
+			e_shrri(mab, z);
 			noncon(ra);
 			return;
 		}
 	}
 
-	e_umldc(ECX, rc);
-	e_umldc(EAX, rb);
+	ra_ldvm(rb, EAX);
+	ra_mhold(EDX);
+	mc = ra_mgetv(rc);
+	ra_mclear(EDX);
 	e_xorrr(EDX, EDX);
-	CC(0xF7); Cmodrm(MODreg, 6, ECX);
-	e_umst(EAX, ra);
+	assert(mc != EAX && mc != EDX);
+	ra_mchange(EAX, ra);
+	CC(0xF7); Cmodrm(MODreg, 6, mc);
+	ra_mrelse(EDX);
 	noncon(ra);
 }
 
 static void co_nand(int ra, int rb, int rc)
 {
+	int mab, mc, rt;
+
 	if (ISC(rb)&&ISC(rc)) {
 		co_ortho(ra, ~(g.con[rb] & g.con[rc]));
 		return;
 	}
-	e_umldc(EAX, rb);
-	e_umldc(EDX, rc);
-	e_andrr(EAX, EDX);
-	e_notr(EAX);
-	e_umst(EAX, ra);
+	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
+	mab = ra_mgetv(rb);
+	mc = ra_mgetv(rc);
+	ra_mchange(mab, ra);
+	e_andrr(mab, mc);
+	e_notr(mab);
 	noncon(ra);
 }
 
 static void co_halt(void)
 {
+	ra_vflushall();
 	e_xorrr(EAX,EAX);
 	e_addri(ESP, 12);
 	e_popr(EDI); e_popr(ESI); e_popr(EBX);
@@ -352,6 +547,7 @@ static void co_halt(void)
 
 static void co_alloc(int rb, int rc)
 {
+	int mc;
 	p_t *(*allo)(p_t) = um_alloc;
 
 	if (ISC(rc)) {
@@ -360,54 +556,68 @@ static void co_alloc(int rb, int rc)
 		else if (g.con[rc] <= 7)
 			allo = um_alloc7;
 	}
-	e_umldc(EAX, rc);
+	mc = ra_mgetv(rc);
 	e_addri(ESP,4);
-	e_pushr(EAX);
+	e_pushr(mc);
+	co__cclear();
+	ra_mchange(EAX, rb);
 	e_calli(allo);
-	e_umst(EAX, rb);
 	noncon(rb);
 	setnz(rb);
 }
 
 static void co_free(int rc)
 {
-	e_umld(EAX, rc);
+	int mc;
+	
+	mc = ra_mgetv(rc);
 	e_addri(ESP,4);
-	e_pushr(EAX);
+	e_pushr(mc);
+	co__cclear();
 	e_calli(um_free);
 	setnz(rc); /* this info could go backwards */
 }
 
 static void co_output(int rc)
 {
-	e_umldc(EAX, rc);
+	int mc;
+
+	mc = ra_mgetv(rc);
 	e_addri(ESP,4);
-	e_pushr(EAX);
+	e_pushr(mc);
+	co__cclear();
 	e_calli(putchar);
 }
 
 static void co_input(int rc)
 {
+	co__cclear();
+	ra_mchange(EAX, rc);
 	e_calli(getchar);
-	e_umst(EAX, rc);
 	noncon(rc);
 }
 
 static void co__loadguard(int rb, int rc)
 {
+	int mb;
+	
 	if (ISZ(rb))
 		return;
-	e_umldc(EDX, rb);
+	mb = ra_mgetv(rb);
 	if (!ISNZ(rb)) {
-		e_cmpri(EDX, 0);
+		e_cmpri(mb, 0);
 		e_jcc(g.outl.next, CCz+1);
 		g.c = &g.outl;
 	}
-	e_umldc(EAX, rc);
 	e_addri(ESP,12);
 	e_pushi(g.znz | NZMASK(rb));
-	e_pushr(EAX);
-	e_pushr(EDX);
+	if (ISR(rc)) {
+		e_pushr(g.vtom[rc]);
+	} else {
+		/* do a memory push; can't mutate ra state while branched */
+		CC(0xFF); Cmodrm(MODdb, 6, EBP); CC(DofU(rc));
+	}
+	e_pushr(mb);
 	e_calli(um_loadfar);
 	e_jmpr(EAX);
 	if (!ISNZ(rb)) {
@@ -445,34 +655,37 @@ static void co__load0c(p_t cc, znz_t znz)
 
 static void co__load0(int rc, znz_t znz)
 {
+	int mc;
+
 	if (ISC(rc)) {
 		co__load0c(g.con[rc], znz);
 	} else {
-		e_umld(EAX, rc);
+		mc = ra_mgetv(rc);
 		e_addri(ESP,8);
 		e_pushi(znz);
-		e_pushr(EAX);
+		e_pushr(mc);
 		e_calli(um_enter);
 		e_jmpr(EAX);
-	}	
+	}
 }
 
 static void co_load(int rb, int rc)
 {
+	ra_vflushall();
 	co__loadguard(rb, rc);
 	co__load0(rc, g.znz | ZMASK(rb));
 }
 
 static void co_ortho(int ri, p_t imm)
 {
-	e_movri(EAX, imm);
-	e_umst(EAX, ri);
+	ra_vinval(ri);
 	setcon(ri, imm);
 }
 
 static void co_badness(void)
 {
 	static const char *str = "bad insn @%d";
+	ra_vflushall();
 	e_addri(ESP,8);
 	e_pushi(g.time);
 	e_pushi((int)str);
@@ -483,13 +696,15 @@ static void co_badness(void)
 static void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
 {
 	znz_t znz = (g.znz & ~ZNZMASK(ri)) | ZMASK(rs);
+	int mc;
 
+	ra_vflushall();
 	co__loadguard(rs, ri);
-	e_umldc(EAX, rc);
-	e_cmpri(EAX, 0);
+	mc = ra_mgetv(rc);
+	e_cmpri(mc, 0);
 	jcc_over(CCz);
-	e_movri(EAX, ct);
-	e_umst(EAX, ri);
+	co_ortho(ri, ct);
+	ra_vflush(ri);
 	co__load0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
 	end_over;
 	co__load0c(cf, znz | QZMASK(ri,ct) | ZMASK(rc));
@@ -502,31 +717,42 @@ void umc_codlink(struct cod *from, char *to)
 	((int*)from->next)[-1] = to - from->next;
 }
 
+static void co_fltnoex(void)
+{
+	ra_vflushall();
+	e_calli(um_destroy_world);
+	e_addri(ESP, 8);
+	e_pushi(g.znz);
+	e_pushi(g.time);
+	e_calli(um_enter);
+	e_jmpr(EAX);
+}
+
+/* --- */
+
 static struct block*
 umc_mkblk(p_t x, znz_t znz)
 {
 	int done = 0, thispg = x/UM_PGSZ;
 	p_t i, o, a, b, c, limit;
-	struct block *blk = malloc(sizeof(struct block)), *bli;
+	struct block *blk = malloc(sizeof(struct block));
 	void *jmpto = 0;
 
 	limit = (thispg + 1) * UM_PGSZ;
-	/* This is no longer strictly necessary; with more
-	   optimization it might be worth removing? */
-	for (bli = progblks[thispg]; bli; bli = bli->next)
-		if (bli->begin > x && bli->begin < limit) {
-			limit = bli->begin;
-			jmpto = bli->jmp;
-		}
-	
+
 	blk->begin = x;
 	blk->jmp = here;
 	blk->znz = znz;
 	
 	g.curblk = blk;
 	g.znz = znz;
+	g.mset = 255;
+	g.rset = 0;
 	g.cset = znz & 255;
 	memset(&g.con, 0, sizeof(g.con));
+	memset(&g.mlru, 0, sizeof(g.mlru));
+	memset(&g.mtov, -1, sizeof(g.mtov));
+	memset(&g.vtom, 170, sizeof(g.vtom));
 	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
 		char *then, *othen;
@@ -534,14 +760,7 @@ umc_mkblk(p_t x, znz_t znz)
 			co_badness(); done = 1; break;
 		}
 		if (btst(prognoex, g.time)) {
-			e_calli(um_destroy_world);
-			e_addri(ESP, 8);
-			e_pushi(g.znz);
-			e_pushi(g.time);
-			e_calli(um_enter);
-			e_jmpr(EAX);
-			done = 1;
-			break;
+			co_fltnoex(); done = 1;	break;
 		}
 
 		getcod(&g.inl, 1024);
@@ -594,6 +813,9 @@ umc_mkblk(p_t x, znz_t znz)
 	g.curblk = 0;
 	useblk(blk);
 	if (!done) {
+		char *then = here;
+		ra_vflushall();
+		nbcompiled[0] += here - then;
 		if (jmpto) 
 			e_jmpi(jmpto);
 		else {
