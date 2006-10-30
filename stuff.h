@@ -35,15 +35,6 @@ void um_free(p_t *arr);
 #define INSN_IR(i) (((i)>>25)&7)
 #define INSN_IM(i) ((i)&0x1FFFFFF)
 
-/*
-enum um_pf_how {
-	UM_PF_LOAD,
-	UM_PF_HALT,
-	UM_PF_ABEND,
-	UM_PF_PANIC
-};
-*/
-
 void panic(const char* fmt, ...) um_printflike;
 void yowl(const char* fmt, ...) um_printflike;
 #ifdef UM_VERBOSE

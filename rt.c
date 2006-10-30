@@ -124,7 +124,6 @@ um_abend(const char* fmt, ...)
 	fprintf(stderr, "\n\tafter ");
 	va_end(v);
 	prtimes();
-	// cpu_progfini(UM_PF_ABEND);
 	exit(1);
 }
 
@@ -133,7 +132,6 @@ um_halt(void)
 {
 	fprintf(stderr, UM_IDENT"/"UM_CPU_IDENT": HALT after ");
 	prtimes();
-	// cpu_progfini(UM_PF_HALT);
 	exit(0);
 }
 
@@ -143,12 +141,10 @@ um_newprog(p_t aid)
 	p_t np = ((p_t*)aid)[-1];
 
 	whine(("far load %d platters", np));
-	// cpu_progfini(UM_PF_LOAD);
 	munmap(progdata, um_pdatmlen);
 	if (0 > um_progalloc(np))
 		um_abend("load map: %s", ESTR);
 	memcpy(progdata, (p_t*)aid, np*4);
-	// cpu_proginit();
 }
 
 struct extent {
@@ -210,7 +206,6 @@ um_ipl(int argc, char** argv)
 	free(es);
 	
 	fprintf(stderr, UM_IDENT"/"UM_CPU_IDENT" %s booting...\n", um_vers);
-	// cpu_proginit();
 }
 
 
