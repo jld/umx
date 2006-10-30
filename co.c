@@ -529,9 +529,13 @@ static void co_nand(int ra, int rb, int rc)
 	}
 	if (rc == ra) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	mc = ra_mgetv(rc);
-	ra_mchange(mab, ra);
-	e_andrr(mab, mc);
+	if (rb != rc) {
+		mc = ra_mgetv(rc);
+		ra_mchange(mab, ra);
+		e_andrr(mab, mc);
+	} else {
+		ra_mchange(mab, ra);
+	}
 	e_notr(mab);
 	noncon(ra);
 }
