@@ -276,7 +276,7 @@ static void ra_ldvm(int v, int m)
 	g.rset |= (1<<v);
 	g.mtov[m] = v;
 	g.vtom[v] = m;
-	g.mlru[m] = g.time;
+	ra_mtouch(m);
 }
 
 static int ra_mgetv(int v)
@@ -286,7 +286,7 @@ static int ra_mgetv(int v)
 	if (ISR(v)) {
 		m = g.vtom[v];
 		assert(m >= 0 && m < NMREG);
-		g.mlru[m] = g.time;
+		ra_mtouch(m);
 	} else {
 		m = ra_mget();
 		ra_ldvm(v, m);
@@ -342,10 +342,10 @@ static int ra_mgetvd(int v)
 		m = ra_mget();
 		g.vtom[v] = m;
 		g.mtov[m] = v;
+		g.rset |= (1<<v);
 	}
 	ra_mtouch(m);
 	ra_vdirty(v);
-	g.rset |= (1<<v);
 	return m;	
 }
 
@@ -394,14 +394,39 @@ static void co_cmov(int ra, int rb, int rc)
 	}
 }
 
+static void co__ldst(char opc, int rs, int ri, int rd)
+{
+	int ms, md, mi;
+	
+	md = ra_mgetv(rd);
+
+ 	if (ISC(ri)) {
+		p_t offs = g.con[ri] * 4;
+		if (ISC(rs)) {
+			offs += g.con[rs];
+			CC(opc); Cmodrm(MODnd, md, RMabs); CW(offs);
+			return;
+		}
+		ms = ra_mgetv(rs);
+		CC(opc);
+		if (ISB((int)offs)) {
+			Cmodrm(MODdb, md, ms); CC(offs);
+		} else {
+			Cmodrm(MODdw, md, ms); CW(offs);
+		}
+	} else {
+		mi = ra_mgetv(ri);
+		ms = ra_mgetv(rs);
+		CC(opc); Cmodrm(MODnd, md, RMsib); Csib(Sfour, mi, ms);
+	}
+}
+
 static void co_index(int ra, int rb, int rc)
 {
-	int ma, mb, mc;
-	mc = ra_mgetv(rc); /* index */
-	mb = ra_mgetv(rb); /* segment */
-	ma = ra_mgetvd(ra); /* data */
-	CC(0x8B); Cmodrm(MODnd, ma, RMsib);
-	Csib(Sfour, mc, mb);
+	if (ra != rb && ra != rc)
+		(void)ra_mgetvd(ra); /* make resident; skip load */
+	co__ldst(0x8B, rb, rc, ra);
+	ra_vdirty(ra);
 	noncon(ra);
 }
 
@@ -420,19 +445,17 @@ static void co__postwrite(int mi, int znz)
 
 static void co_amend(int ra, int rb, int rc)
 {
-	int ma, mb, mc;
+	int ma, mb;
+	
+	co__ldst(0x89, ra, rb, rc);
 
-	mc = ra_mgetv(rc); /* data */
-	mb = ra_mgetv(rb); /* index */
-	ma = ra_mgetv(ra); /* segment */
-	CC(0x89); Cmodrm(MODnd, mc, RMsib);
-	Csib(Sfour, mb, ma);
 	if (ISNZ(ra))
 		return;
 	if (ISZ(ra)) {
 		if (ISC(rb) && !btst(prognowr, g.con[rb])) {
 			bset(prognoex, g.con[rb]);
 		} else {
+			mb = ra_mgetv(rb); /* index */
 			ra_vflushall();
 			co__cclear();
 			/* and now, the postwrite */
@@ -442,6 +465,8 @@ static void co_amend(int ra, int rb, int rc)
 			end_over;
 		} 
 	} else {
+		ma = ra_mgetv(ra); /* segment */		
+		mb = ra_mgetv(rb); /* index */
 		ra_vflushall();
 		co__cclear();
 		/* and now, the postwrite */
