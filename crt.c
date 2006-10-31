@@ -131,6 +131,11 @@ um_postwrite(p_t target, p_t source, znz_t znz)
 		return 0;
 }
 
+/* For later:
+bt prognowr, %bar
+jc elsewhere
+*/
+
 void*
 um_enter(p_t x, znz_t znz)
 {
@@ -142,6 +147,26 @@ um_enter(p_t x, znz_t znz)
 	else 
 		return umc_enter(x, znz);
 }
+
+/* For later:
+
+mov %bar,%foo
+and $1023,%foo
+mov stuff(,%foo,4),%foo
+test %foo,%foo
+jnz later
+mov (%foo),%baz
+cmp %bar,%baz
+jne later
+movzxl 20(%foo),%baz
+test #{not our bits},%baz
+jnz later
+mov 12(%foo),%baz
+jmp *%baz
+  later:
+add/push/call um_enter
+jmp *%eax
+*/
 
 void*
 um_loadfar(p_t seg, p_t idx, znz_t znz)
