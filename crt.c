@@ -75,7 +75,7 @@ getblk(p_t x)
 
 	for (i = l; i <= x; ++i) {
 		blk = getblkx(i, 65535);
-		if (inblk(blk, i))
+		if (inblk(blk, x))
 			return blk;
 	}
 	return NULL;
@@ -123,6 +123,7 @@ um_postwrite(p_t target, p_t source, znz_t znz)
 			  source, target, yow?" (YOW!)":""));
 		delblk(tblk);
 	}
+	assert(!btst(prognowr, target));
 
 	if (!btst(prognowr, source))
 		return umc_enter(source + 1, znz);
