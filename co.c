@@ -270,10 +270,10 @@ static int ra__dislike(int m)
 	v = g.mtov[m];
 	if (v < -1) /* it's held; don't eject */
 		return -1;
-	if (v < 0) /* it'd free; eject! */
+	if (v < 0) /* it's free; eject! */
 		return 1<<30;
-	d = g.time - g.mlru[m];
-	d = d - (ISM(v) ? (d/2) : 0) + (ISC(v) ? 0 : d);
+	d = 4*(g.time - g.mlru[m]);
+	d = d + (ISM(v) ? 1 : -1) * (ISC(v) ? (d/2) : (d/4));
 	return d;
 }
 
