@@ -41,8 +41,8 @@ void mpool_init(struct mpool *, int);
 void* mpool_alloc_eop(struct mpool *, int);
 static inline void* mpool_alloc(struct mpool *po, int sh) {
         unsigned i;
-	while (!po->bmap[po->ptr])
-		if (po->ptr-- == 0)
+	while (__builtin_expect(!po->bmap[po->ptr], 0))
+		if (__builtin_expect(po->ptr-- == 0, 0))
 			return mpool_alloc_eop(po, sh);
 	i = 31^__builtin_clz(po->bmap[po->ptr]);
 	po->bmap[po->ptr] &= ~(1<<i);

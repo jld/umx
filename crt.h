@@ -3,7 +3,7 @@
 #include "stuff.h"
 #include <sys/types.h>
 
-#define UM_PGSZ 1024
+#define UM_MAXBLK 256
 
 typedef unsigned *bitset_t;
 
@@ -41,7 +41,6 @@ void* um_enter(p_t x, znz_t znz);
 void* um_loadfar(p_t seg, p_t idx, znz_t znz);
 void* um_enterdep(p_t x, struct block *src, znz_t znz);
 
-struct block **progblks;
 bitset_t prognowr, prognoex;
 
 struct cod

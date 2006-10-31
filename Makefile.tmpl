@@ -1,7 +1,7 @@
 # -*- Makefile -*- 
 .POSIX:
 CDEFS=-DUM_VERBOSE -DUM_MPOOL
-COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing `sh oscflags.sh`
+COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing `sh oscflags.sh` -finline-limit=1200
 CWARN=-Wall -W
 
 CDBG=

@@ -807,12 +807,12 @@ static void co_fltnoex(void)
 static struct block*
 umc_mkblk(p_t x, znz_t znz)
 {
-	int done = 0, thispg = x/UM_PGSZ;
+	int done = 0;
 	p_t i, o, a, b, c, limit;
 	struct block *blk = malloc(sizeof(struct block));
 	void *jmpto = 0;
 
-	limit = (thispg + 1) * UM_PGSZ;
+	limit = x + UM_MAXBLK;
 
 	blk->begin = x;
 	blk->jmp = here;

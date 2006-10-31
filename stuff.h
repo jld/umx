@@ -3,8 +3,12 @@
 
 #ifdef __GNUC__
 # define um_printflike __attribute__((__format__ (printf, 1, 2)))
+# define um_likely(x) (__builtin_expect((x) != 0, 1))
+# define um_unlike(x) (__builtin_expect((x) != 0, 0))
 #else
 # define um_printflike
+# define um_likely(x) (x)
+# define um_unlike(x) (x)
 #endif
 
 #include <sys/types.h>
