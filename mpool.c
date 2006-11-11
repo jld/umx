@@ -75,6 +75,9 @@ void mpool_init(struct mpool *mp, int sh)
 {
 	unsigned *sl;
 
+	if (!mpo_stop)
+		mpo_stop = calloc(1<<(30-MPOOL_SLSHIFT), sizeof(unsigned*));
+
 	mp->rsh = sh;
 	sl = mpool_newslab(sh);
 	MPO_POST(sl) = mp;

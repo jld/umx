@@ -27,12 +27,18 @@ static const int MPO_OLS(name) = shift
 #define MPOOL_INIT(name) mpool_init(&(MPO_OLP(name)), MPO_OLS(name))
 void mpool_init(struct mpool *, int);
 
+struct mpool **mpo_stop;
+
 #define MPO_NEXT(slabp) (*((unsigned**)&((slabp)[(1<<MPOOL_SLSHIFT)-1])))
 #define MPO_BMAP(slabp) (*((unsigned**)&((slabp)[(1<<MPOOL_SLSHIFT)-2])))
 #define MPO_FREE(slabp) ((slabp)[(1<<MPOOL_SLSHIFT)-3])
-#define MPO_POST(slabp) (*((struct mpool**)&((slabp)[(1<<MPOOL_SLSHIFT)-4])))
+#define MPO_POST(ptr) (mpo_stop[((unsigned)ptr)>>(2+MPOOL_SLSHIFT)])
+
+#define MPOOL_ISOWN(ptr) MPO_POST(ptr)
+#define MPOOL_SIZE(ptr) (1<<(MPO_POST(ptr)->rsh))
+
 #define MPO_BMW(shift) ((1U<<MPOOL_SLSHIFT)>>((shift)+5))
-#define MPO_NWH 4
+#define MPO_NWH 3
 #define MPO_MNF(sh) ((1U<<MPOOL_SLSHIFT)>>((sh)+MPOOL_MINFREE))
 
 #define MPOOL_ALLOC(var,name) \
@@ -67,8 +73,7 @@ static inline void mpool_free(void *ptr, struct mpool *po, int sh) {
 }
 
 static inline void mpool_xfree(void *ptr) {
-	unsigned *sl = MPO_PTS(ptr);
-	struct mpool *po = MPO_POST(sl);
+	struct mpool *po = MPO_POST(ptr);
 	mpool_free(ptr, po, po->rsh);
 }
 

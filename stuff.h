@@ -28,8 +28,8 @@ void um_newprog(p_t aid);
 void um_halt(void);
 void um_abend(const char* fmt, ...) um_printflike;
 p_t *um_alloc(p_t len);
-p_t *um_alloc3(p_t len);
-p_t *um_alloc7(p_t len);
+p_t *um_alloc4();
+p_t *um_alloc8();
 void um_free(p_t *arr);
 
 #define INSN_OP(i) ((i)>>28)

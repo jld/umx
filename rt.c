@@ -27,23 +27,21 @@ static int um_progalloc(p_t);
 static struct timeval ipltime;
 
 p_t *
-um_alloc3(p_t len)
+um_alloc4()
 {
 	p_t *rv;
 	
 	MPOOL_ALLOC(rv, segpool4);
-	rv[0] = len;
-	return rv +1;
+	return rv;
 }
 
 p_t *
-um_alloc7(p_t len)
+um_alloc8()
 {
 	p_t *rv;
 	
 	MPOOL_ALLOC(rv, segpool8);
-	rv[0] = len;
-	return rv +1;
+	return rv;
 }
 
 p_t *
@@ -54,15 +52,17 @@ um_alloc(p_t len)
 #ifndef UM_MPOOL
 	rv = malloc(4 * (len + 1));
 #else
-	if (len <= 3) 
-		return um_alloc3(len);
-	else if (len <= 7)
-		return um_alloc7(len);
-	else if (len <= 15)
-		MPOOL_ALLOC(rv, segpool16);
-	else if (len <= 31)
+	if (len <= 4) 
+		return um_alloc4();
+	else if (len <= 8)
+		return um_alloc8();
+	else if (len <= 16) {
+		MPOOL_ALLOC(rv, segpool16); 
+		return rv;
+	} else if (len <= 32) {
 		MPOOL_ALLOC(rv, segpool32);
-	else
+		return rv;
+	} else
 		rv = calloc(4, len + 1); 
 #endif
 	if (!rv) 
@@ -83,8 +83,8 @@ void
 um_free(p_t *seg)
 {
 #ifdef UM_MPOOL
-	if (seg[-1] <= 31)
-		mpool_xfree(seg-1);
+	if (MPOOL_ISOWN(seg))
+		mpool_xfree(seg);
 	else
 #endif
 		free(seg - 1);
@@ -138,7 +138,12 @@ um_halt(void)
 void
 um_newprog(p_t aid)
 {
-	p_t np = ((p_t*)aid)[-1];
+	p_t np;
+	
+	if (MPOOL_ISOWN((void*)aid))
+		np = MPOOL_SIZE((void*)aid);
+	else 
+		np = ((p_t*)aid)[-1];
 
 	whine(("far load %d platters", np));
 	munmap(progdata, um_pdatmlen);

@@ -625,14 +625,16 @@ static void co_alloc(int rb, int rc)
 	p_t *(*allo)(p_t) = um_alloc;
 
 	if (ISC(rc)) {
-		if (g.con[rc] <= 3)
-			allo = um_alloc3;
-		else if (g.con[rc] <= 7)
-			allo = um_alloc7;
+		if (g.con[rc] <= 4)
+			allo = um_alloc4;
+		else if (g.con[rc] <= 8)
+			allo = um_alloc8;
 	}
-	mc = ra_mgetv(rc);
-	e_addri(ESP,4);
-	e_pushr(mc);
+	if (allo == um_alloc) {
+		mc = ra_mgetv(rc);
+		e_addri(ESP,4);
+		e_pushr(mc);
+	}
 	co__cclear();
 	ra_mchange(EAX, rb);
 	e_calli(allo);
