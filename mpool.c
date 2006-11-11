@@ -7,7 +7,7 @@
 static unsigned *
 mpool_newslab(int sh)
 {
-	unsigned *sl, *bm;
+	unsigned *sl, *bm, n;
 
 #ifdef MAP_ALIGNED
         sl = mmap(0, 4 << MPOOL_SLSHIFT, PROT_READ | PROT_WRITE,
@@ -32,9 +32,10 @@ mpool_newslab(int sh)
 
 	bm = malloc(MPO_BMW(sh)*4);
 	memset(bm, 255, MPO_BMW(sh)*4);
-	bm[MPO_BMW(sh)-1] >>= ((MPO_NWH + (1 << sh) - 1) >> sh);
+	n = ((MPO_NWH + (1 << sh) - 1) >> sh);
+	bm[MPO_BMW(sh)-1] >>= n;
 	MPO_BMAP(sl) = bm;
-	MPO_FREE(sl) = MPO_BMW(sh) * 32 - 1;
+	MPO_FREE(sl) = MPO_BMW(sh) * 32 - n;
 
 	return sl;
 }
