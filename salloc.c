@@ -5,7 +5,7 @@
 
 #define SLAB (1<<16)
 
-static unsigned sentinel = 0xDEADBEEF, *nextready;
+static unsigned *nextready;
 #define mtop sall__mtop
 #define mbot sall__mbot
 #define lastfree sall__lastfree
@@ -15,7 +15,7 @@ static void list_cycle(void);
 
 void salloc_init(void)
 {
-	nextready = lastfree = &sentinel;
+	nextready = lastfree = 0;
 	mtop = mbot = 0;
 	get_more_ram();
 	salloc_reload(0);
@@ -37,13 +37,13 @@ void salloc_reload(unsigned n)
 	 * You know, if the top of lastfree is big enough, we should
 	 * use that instead of nextready, for better locality (LIFO).
 	 */
-	if (nextready == &sentinel) {
+	if (nextready == 0) {
 		for (nextusable = lastfree;
-		     nextusable != &sentinel &&
+		     nextusable != 0 &&
 			 SAF_END(nextusable) - n/4 < nextusable;
 		     nextusable = SAF_NXT(nextusable));
 
-		if (nextusable == &sentinel)
+		if (nextusable == 0)
 			get_more_ram();
 		else
 			list_cycle(); /* XXX frags on head */
@@ -72,7 +72,7 @@ static void insert_and_stuff(unsigned **plst, unsigned* foo)
 
  top_of_insert:
 	lst = *plst;
-	if (lst == &sentinel) {
+	if (lst == 0) {
 		goto justcons;
 	} else if (SAF_END(lst) == foo) {
 		SAF_END(lst) = SAF_END(foo);
@@ -98,10 +98,10 @@ merge_and_stuff(unsigned *la, unsigned *lb)
 
 	cdr = &rv;
 	for (;;) {
-		if (la == &sentinel) {
+		if (la == 0) {
 			*cdr = lb; 
 			break;
-		} else if (lb == &sentinel) {
+		} else if (lb == 0) {
 			*cdr = la;
 			break;
 		} else if (SAF_END(la) == lb) {
@@ -129,14 +129,14 @@ sort_and_stuff(unsigned *lst)
 	unsigned *tort, **ptort, *hare, *la, *lb;
 	hare = tort = lst;
 
-	while(hare != &sentinel && SAF_NXT(hare) != &sentinel) {
+	while(hare != 0 && SAF_NXT(hare) != 0) {
 		hare = SAF_NXT(SAF_NXT(hare));
 		ptort = &SAF_NXT(tort);
 		tort = SAF_NXT(tort);
 	}
 	if (tort == lst)
 		return lst;
-	*ptort = &sentinel;
+	*ptort = 0;
 	la = sort_and_stuff(lst);
 	lb = sort_and_stuff(tort);
 	return merge_and_stuff(la, lb);
@@ -145,7 +145,7 @@ sort_and_stuff(unsigned *lst)
 static void list_cycle(void)
 {
 	nextready = sort_and_stuff(lastfree);
-	lastfree = &sentinel;
+	lastfree = 0;
 }
 
 unsigned *salloc_special(unsigned len)
@@ -161,11 +161,14 @@ unsigned *salloc_special(unsigned len)
 	return ptr;
 }
 
-void sall_dump(unsigned *ptr)
+int sall_dump(unsigned *ptr)
 {
-	while(ptr != &sentinel) {
+	int n = 0;
+	while(ptr != 0) {
 		fprintf(stderr, "%p - %p (%d)\n",
 		    ptr, SAF_END(ptr), SAF_END(ptr) - ptr);
 		ptr = SAF_NXT(ptr);
+		++n;
 	}
+	return n;
 }
