@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "stuff.h"
 #include "crt.h"
+#include "salloc.h"
 
 static int ctz(unsigned l)
 {
@@ -107,6 +108,44 @@ SIV e_movrr(int rd, int rs) { CC(0x89); Cmodrm(MODreg,rs,rd); }
 
 SIV e_mulrr(int rd, int rs) { CC(0x0F); CC(0xAF); Cmodrm(MODreg,rd,rs); }
 
+SIV e_learrr(int rd, int rb, int ri, int sc) {
+	CC(0x8D); Cmodrm(MODnd, rd, RMsib); Csib(sc, ri, rb);
+}
+#define e_addrrr(d,l,r) e_learrr(d,l,r,Sone)
+
+SIV e_xxxra(int r, void* addr, int aop, int rop) {
+	if (r == EAX) {
+		CC(aop);
+	} else {
+		CC(rop); Cmodrm(MODnd, r, RMabs);
+	}
+	CW((int)addr);
+}
+
+SIV e_movra(int rd, void* addr) { e_xxxra(rd, addr, 0xA1, 0x8B); }
+SIV e_movar(int rs, void* addr) { e_xxxra(rs, addr, 0xA3, 0x89); }
+
+
+SIV e_xxxrd(int rd, int rb, int disp) {
+	if (!disp) {
+		Cmodrm(MODnd, rd, rb);
+	} else if (ISB(disp)) {
+		Cmodrm(MODdb, rd, rb); CC(disp);
+	} else {
+		Cmodrm(MODdw, rd, rb); CW(disp);
+	}
+}
+SIV e_movrd(int rd, int rb, int disp) { CC(0x8B); e_xxxrd(rd, rb, disp); }
+SIV e_movdr(int rs, int rb, int disp) { CC(0x89); e_xxxrd(rs, rb, disp); }
+
+SIV e_movdi(int rb, int disp, int val) {
+	CC(0xC7); e_xxxrd(0, rb, disp); CW(val);
+}
+
+SIV e_cmprd(int rl, int rb, int disp) { CC(0x3B); e_xxxrd(rl, rb, disp); }
+SIV e_cmpdr(int rr, int rb, int disp) { CC(0x39); e_xxxrd(rr, rb, disp); }
+SIV e_cmpra(int rl, void* addr) { e_cmprd(rl, RMabs, 0); CW((int)addr); }
+SIV e_cmpar(int rr, void* addr) { e_cmpdr(rr, RMabs, 0); CW((int)addr); }
 
 SIV e_pushi(int i) {
 	if (ISB(i)) { 
@@ -183,13 +222,13 @@ SIV e_mulri(int r, p_t i) {
 	}
 	switch(m) {
 	case 9:
-		CC(0x8D); Cmodrm(MODnd, r, RMsib); Csib(Seight, r, r);
+		e_learrr(r, r, r, Seight);
 		goto shl;
 	case 5:
-		CC(0x8D); Cmodrm(MODnd, r, RMsib); Csib(Sfour, r, r);
+		e_learrr(r, r, r, Sfour);
 		goto shl;
 	case 3:
-		CC(0x8D); Cmodrm(MODnd, r, RMsib); Csib(Stwo, r, r);
+		e_learrr(r, r, r, Stwo);
 	case 1: shl:
 		e_shlri(r, z);
 		break;
@@ -629,29 +668,77 @@ static void co_halt(void)
 
 static void co_alloc(int rb, int rc)
 {
-	int mc;
+	int mc, mb, len, i;
+	char* alloop;
 
-	/* specialization to be restored later */
-	mc = ra_mgetv(rc);
-	e_addri(ESP,4);
-	e_pushr(mc);
-	co__cclear();
-	ra_mchange(EAX, rb);
-	e_calli(um_alloc);
+	if (ISC(rc) && g.con[rc] < 16) {
+		len = (g.con[rc] + 1) * 4;
+		if (len < 8)
+			len = 8;
+		mb = ra_mgetvd(rb);
+		alloop = here;
+		e_movra(mb, &sall__mtop);
+		e_addri(mb, -len-8);
+		e_cmpra(mb, &sall__mbot);
+		e_jcc(g.outl.next, CCb);
+		e_addri(mb, 8);
+		e_movar(mb, &sall__mtop);
+		e_movdi(mb, 0, len);
+		e_addri(mb, 4);
+		for (i = 0; i < len-4; i += 4)
+			e_movdi(mb, i, 0);
+
+		g.c = &g.outl;
+		e_pushr(ECX); e_pushr(EDX); e_pushr(EAX); e_pushi(len+8);
+		e_calli(salloc_reload);
+		e_popr(EAX);  e_popr(EAX);  e_popr(EDX);  e_popr(ECX);
+		e_jmpi(alloop);
+		g.c = &g.inl;
+	} else {
+		mc = ra_mgetv(rc);
+		e_addri(ESP,4);
+		e_pushr(mc);
+		co__cclear();
+		ra_mchange(EAX, rb);
+		e_calli(um_alloc);
+	}
 	noncon(rb);
 	setnz(rb);
 }
 
 static void co_free(int rc)
 {
-	int mc;
+	int mc, mlen, mlfr;
 	
 	mc = ra_mgetv(rc);
+#if 0
 	e_addri(ESP,4);
 	e_pushr(mc);
 	co__cclear();
 	e_calli(um_free);
+#else
+	ra_mhold(mlen = ra_mget());
+	ra_mhold(mlfr = ra_mget());
+	e_subri(mc, 4);
+	e_movrd(mlen, mc, 0);
+	e_movra(mlfr, &sall__lastfree);
+	e_cmprd(mc, mlfr, (int)&SAF_END(0));
+	e_jcc(g.outl.next, CCz+1);
+	e_addrr(mc, mlen);
+	e_movdr(mc, mlfr, (int)&SAF_END(0));
+	
+	g.c = &g.outl;
+	e_movdr(mlfr, mc, (int)&SAF_NXT(0));
+	e_addrrr(mlfr, mc, mlen);
+	e_movdr(mlfr, mc, (int)&SAF_END(0));
+	e_movar(mc, &sall__lastfree);
+	e_jmpi(g.inl.next);
+	g.c = &g.inl;
+	ra_mrelse(mlfr);
+	ra_mrelse(mlen);
+#endif
 	setnz(rc); /* this info could go backwards */
+	
 }
 
 static void co_output(int rc)
