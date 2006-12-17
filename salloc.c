@@ -5,19 +5,31 @@
 
 #define SLAB (1<<16)
 
-static unsigned *nextready;
+static unsigned *nextready, totalmem;
 #define mtop sall__mtop
 #define mbot sall__mbot
 #define lastfree sall__lastfree
 
-static void get_more_ram(void);
+static void get_more_ram(unsigned);
 static void list_cycle(void);
+
+#if 0
+static unsigned freesize(unsigned *lst)
+{
+	unsigned rv = 0;
+	while (lst != 0) {
+		rv += 4 * (SAF_END(lst) - lst);
+		lst = SAF_NXT(lst);
+	}
+	return rv;
+}
+#endif
 
 void salloc_init(void)
 {
 	nextready = lastfree = 0;
 	mtop = mbot = 0;
-	get_more_ram();
+	get_more_ram(1);
 	salloc_reload(0);
 }
 
@@ -43,24 +55,26 @@ void salloc_reload(unsigned n)
 			 SAF_END(nextusable) - n/4 < nextusable;
 		     nextusable = SAF_NXT(nextusable));
 
-		if (nextusable == 0)
-			get_more_ram();
-		else
+		if (nextusable == 0) {
+			get_more_ram(totalmem/8/SLAB + 1);
+		} else {
 			list_cycle(); /* XXX frags on head */
+		}
 	}
 	mbot = nextready;
 	mtop = SAF_END(nextready);
 	nextready = SAF_NXT(nextready);
 }
 
-static void get_more_ram(void)
+static void get_more_ram(unsigned nsl)
 {
 	unsigned *newslab;
 
-	newslab = malloc(SLAB);
+	newslab = malloc(nsl * SLAB);
 	if (!newslab) 
 		panic("salloc: out of sand");
-	SAF_END(newslab) = newslab + (SLAB/4);
+	totalmem += nsl * SLAB;
+	SAF_END(newslab) = newslab + (nsl * SLAB/4);
 	SAF_NXT(newslab) = nextready;
 	nextready = newslab;
 }
@@ -158,6 +172,7 @@ unsigned *salloc_special(unsigned len)
 	ptr = malloc(len);
 	if (!ptr)
 		panic("salloc_special: no more sand");
+	totalmem += len;
 	return ptr;
 }
 
