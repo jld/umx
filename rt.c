@@ -12,14 +12,7 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include "stuff.h"
-
-#ifdef UM_MPOOL
-#include "mpool.h"
-MPOOL_DECL(segpool4, 2);
-MPOOL_DECL(segpool8, 3);
-MPOOL_DECL(segpool16, 4);
-MPOOL_DECL(segpool32, 5);
-#endif
+#include "salloc.h"
 
 static size_t um_pdatmlen;
 static size_t vm_roundup(size_t);
@@ -27,67 +20,17 @@ static int um_progalloc(p_t);
 static struct timeval ipltime;
 
 p_t *
-um_alloc4()
-{
-	p_t *rv;
-	
-	MPOOL_ALLOC(rv, segpool4);
-	return rv;
-}
-
-p_t *
-um_alloc8()
-{
-	p_t *rv;
-	
-	MPOOL_ALLOC(rv, segpool8);
-	return rv;
-}
-
-p_t *
 um_alloc(p_t len)
 {
-	p_t *rv;
-
-#ifndef UM_MPOOL
-	rv = malloc(4 * (len + 1));
-#else
-	if (len <= 4) 
-		return um_alloc4();
-	else if (len <= 8)
-		return um_alloc8();
-	else if (len <= 16) {
-		MPOOL_ALLOC(rv, segpool16); 
-		return rv;
-	} else if (len <= 32) {
-		MPOOL_ALLOC(rv, segpool32);
-		return rv;
-	} else
-		rv = calloc(4, len + 1); 
-#endif
-	if (!rv) 
-		um_abend("the platter supply is finite (rC=%d)", len);
-
-#ifndef UM_MPOOL
-	if (len == 3) 
-		rv[1] = rv[2] = rv[3] = 0;
-	else
-		memset(rv + 1, 0, 4 * len);
-#endif
-
-	*rv = len;
-	return rv + 1;
+	if (len == 0)
+		len = 1;
+	return salloc(len);
 }
 
 void
 um_free(p_t *seg)
 {
-#ifdef UM_MPOOL
-	if (MPOOL_ISOWN(seg))
-		mpool_xfree(seg);
-	else
-#endif
-		free(seg - 1);
+	sfree(seg);
 }
 
 static void
@@ -140,10 +83,7 @@ um_newprog(p_t aid)
 {
 	p_t np;
 	
-	if (MPOOL_ISOWN((void*)aid))
-		np = MPOOL_SIZE((void*)aid);
-	else 
-		np = ((p_t*)aid)[-1];
+	np = salloc_size(aid);
 
 	whine(("far load %d platters", np));
 	munmap(progdata, um_pdatmlen);
@@ -171,13 +111,8 @@ um_ipl(int argc, char** argv)
 	gettimeofday(&ipltime, 0);
 	memset(&nbcompiled, 0, sizeof(nbcompiled));
 	setvbuf(stdout, NULL, _IOLBF, 0);
-	
-#ifdef UM_MPOOL
-	MPOOL_INIT(segpool4);
-	MPOOL_INIT(segpool8);
-	MPOOL_INIT(segpool16);
-	MPOOL_INIT(segpool32);
-#endif
+
+	salloc_init();
 	
 	for (i = 1; i < argc; ++i) {
 		fd = open(argv[i], O_RDONLY);

@@ -4,6 +4,14 @@
 #include "stuff.h"
 #include "crt.h"
 
+static int ctz(unsigned l)
+{
+	int n = 0;
+	if (!l) return -1;
+	while (!(l&1)) { ++n; l>>=1; }
+	return n;
+}
+
 #define SIV static inline void
 #define NMREG 8
 #define NOREG (-1)
@@ -166,7 +174,7 @@ SIV e_shrri(int r, int i) { e_shxri(r, i, 5); }
 SIV e_shlri(int r, int i) { e_shxri(r, i, 4); }
 
 SIV e_mulri(int r, p_t i) {
-	int z = __builtin_ctz(i);
+	int z = ctz(i);
 	p_t m = i >> z;
 
 	if (i == 0) {
@@ -562,7 +570,7 @@ static void co_div(int ra, int rb, int rc)
 	}
 	if (ISC(rc) && g.con[rc]) {
 		p_t d = g.con[rc];
-		int z = __builtin_ctz(d), mab;
+		int z = ctz(d), mab;
 		if (d == 1U << z) {
 			mab = ra_mgetv(rb);
 			ra_mchange(mab, ra);
@@ -622,22 +630,14 @@ static void co_halt(void)
 static void co_alloc(int rb, int rc)
 {
 	int mc;
-	p_t *(*allo)(p_t) = um_alloc;
 
-	if (ISC(rc)) {
-		if (g.con[rc] <= 4)
-			allo = um_alloc4;
-		else if (g.con[rc] <= 8)
-			allo = um_alloc8;
-	}
-	if (allo == um_alloc) {
-		mc = ra_mgetv(rc);
-		e_addri(ESP,4);
-		e_pushr(mc);
-	}
+	/* specialization to be restored later */
+	mc = ra_mgetv(rc);
+	e_addri(ESP,4);
+	e_pushr(mc);
 	co__cclear();
 	ra_mchange(EAX, rb);
-	e_calli(allo);
+	e_calli(um_alloc);
 	noncon(rb);
 	setnz(rb);
 }

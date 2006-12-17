@@ -1,13 +1,13 @@
 # -*- Makefile -*- 
 .POSIX:
-CDEFS=-DUM_VERBOSE -DUM_MPOOL
-COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing `sh oscflags.sh` -finline-limit=1200
+CDEFS=-DUM_VERBOSE
+COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing `sh oscflags.sh`
 CWARN=-Wall -W
 
 CDBG=
 CFLAGS=$(COPT) $(CWARN) $(CDBG) $(CDEFS) $(XCF)
 
-OBJS=rt.o util.o crt.o co.o main.o mpool.o vers.o
+OBJS=rt.o util.o crt.o co.o main.o salloc.o vers.o
 umx: $(OBJS)
 	$(CC) $(CFLAGS) $(LFLAGS) $(OBJS) `sh oslflags.sh` -o umx
 
