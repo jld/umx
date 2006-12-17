@@ -172,9 +172,11 @@ SIV e_xxxri(int r, int i, int or, int aop)
 	}
 }
 
+SIV e_subri(int,int);
 SIV e_addri(int r, int i) { 
 	if (i == 1) e_incr(r);
 	else if (i == -1) e_decr(r);
+	else if (i == 128) e_subri(r, -i);
 	else e_xxxri(r, i, 0, 0x05);
 }
 SIV e_andri(int r, int i) {
@@ -185,6 +187,7 @@ SIV e_andri(int r, int i) {
 SIV e_subri(int r, int i) {
 	if (i == -1) e_incr(r);
 	else if (i == 1) e_decr(r);
+	else if (i == 128) e_addri(r, -i);
 	e_xxxri(r, i, 5, 0x2D);
 }
 SIV e_xorri(int r, int i) {
@@ -668,25 +671,27 @@ static void co_halt(void)
 
 static void co_alloc(int rb, int rc)
 {
-	int mc, mb, len, i;
+	int mc, mb, len, i, mz;
 	char* alloop;
 
-	if (ISC(rc) && g.con[rc] < 16) {
+	if (ISC(rc) && g.con[rc] <= 33) {
 		len = (g.con[rc] + 1) * 4;
 		if (len < 8)
 			len = 8;
 		mb = ra_mgetvd(rb);
 		alloop = here;
 		e_movra(mb, &sall__mtop);
-		e_addri(mb, -len-8);
+		e_subri(mb, len+8);
 		e_cmpra(mb, &sall__mbot);
 		e_jcc(g.outl.next, CCb);
 		e_addri(mb, 8);
 		e_movar(mb, &sall__mtop);
 		e_movdi(mb, 0, len);
 		e_addri(mb, 4);
+		mz = ra_mget();
+		e_movri(mz, 0);
 		for (i = 0; i < len-4; i += 4)
-			e_movdi(mb, i, 0);
+			e_movdr(mz, mb, i);
 
 		g.c = &g.outl;
 		e_pushr(ECX); e_pushr(EDX); e_pushr(EAX); e_pushi(len+8);
