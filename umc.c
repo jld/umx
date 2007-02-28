@@ -76,6 +76,13 @@ if (ISC(b) && ISC(c)) { \
 	} \
 }
 
+#ifdef MD_TWOREG
+/* TODO: OP a, b, c  where a!=b!=c, b dirty, c clean */
+# define COMMUTE do { if (c == a) { int t = b; b = c; c = t; } } while(0)
+#else
+# define COMMUTE ((void)0)
+#endif
+
 		case 0: 
 			if (g.time + 1 < limit) {
 				p_t ii, oo, bb, cc;
@@ -110,10 +117,12 @@ if (ISC(b) && ISC(c)) { \
 			break;
 		case 3: 
 			CFOLD(1, vb + vc);
+			COMMUTE;
 			co_add(a, b, c);
 			break;
 		case 4: 
 			CFOLD(1, vb * vc);
+			COMMUTE;
 			co_mul(a, b, c);
 			break;
 		case 5:
@@ -122,9 +131,10 @@ if (ISC(b) && ISC(c)) { \
 			break;
 		case 6: 
 			CFOLD(1, ~(vb & vc));
-			if (b != c)
+			if (b != c) {
+				COMMUTE;
 				co_and(a, b, c);
-			else 
+			} else 
 				co_mov(a, b);
 			co_not(a, a);
 			break;

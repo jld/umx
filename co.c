@@ -130,7 +130,7 @@ void co_add(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 	
-	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
+	if (ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (ISC(rc)) {
 		ra_mchange(mab, ra);
@@ -147,7 +147,7 @@ void co_mul(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 
-	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
+	if (ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (ISC(rc)) {
 		ra_mchange(mab, ra);
@@ -192,7 +192,7 @@ void co_and(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 
-	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
+	if (ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (ISC(rc)) {
 		ra_mchange(mab, ra);
