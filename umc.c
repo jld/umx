@@ -4,6 +4,23 @@
 
 #define here (g.c->next)
 
+void co_ortho(int ri, p_t imm)
+{
+	ra_vinval(ri);
+	setcon(ri, imm);
+}
+
+void co_mov(int ra, int rb)
+{
+	int mab;
+	
+	mab = ra_mgetv(rb);
+	ra_mchange(mab, ra);
+	noncon(ra);
+	if (ISNZ(rb))
+		setnz(ra);
+}
+
 static struct block*
 umc_mkblk(p_t x, znz_t znz)
 {

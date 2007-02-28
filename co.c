@@ -22,17 +22,6 @@ void co_enter(void)
 	e_subri(ESP,12);
 }
 
-void co_mov(int ra, int rb)
-{
-	int mab;
-	
-	mab = ra_mgetv(rb);
-	ra_mchange(mab, ra);
-	noncon(ra);
-	if (ISNZ(rb))
-		setnz(ra);
-}
-
 void co_cmov(int ra, int rb, int rc)
 {
 	int ma, mb, mc;
@@ -403,12 +392,6 @@ void co_load(int rb, int rc)
 	ra_vflushall();
 	co__loadguard(rb, rc);
 	co__load0(rc, g.znz | ZMASK(rb));
-}
-
-void co_ortho(int ri, p_t imm)
-{
-	ra_vinval(ri);
-	setcon(ri, imm);
 }
 
 void co_badness(void)

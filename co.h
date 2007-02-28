@@ -5,7 +5,7 @@
 /* Prototypes for MD compile functions. */
 void co_enter(void);
 void co_cmov(int ra, int rb, int rc);
-void co_mov(int ra, int rb);
+void co_mov(int ra, int rb);              /* MI */
 void co_index(int ra, int rb, int rc);
 void co_amend(int ra, int rb, int rc);
 void co_add(int ra, int rb, int rc);
@@ -18,7 +18,7 @@ void co_free(int rc);
 void co_output(int rc);
 void co_input(int rc);
 void co_load(int rb, int rc);
-void co_ortho(int ri, p_t imm);
+void co_ortho(int ri, p_t imm);           /* MI */
 void co_badness(void);
 void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf);
 void co_fltnoex(void);
