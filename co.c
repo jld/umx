@@ -188,7 +188,7 @@ void co_div(int ra, int rb, int rc)
 	noncon(ra);
 }
 
-void co_nand(int ra, int rb, int rc)
+void co_and(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 
@@ -206,7 +206,16 @@ void co_nand(int ra, int rb, int rc)
 	} else {
 		ra_mchange(mab, ra);
 	}
-	e_notr(mab);
+	noncon(ra);
+}
+
+void co_not(int ra, int rbc)
+{
+	int m;
+
+	m = ra_mgetv(rbc);
+	ra_mchange(m, ra);
+	e_notr(m);
 	noncon(ra);
 }
 

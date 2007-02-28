@@ -2,7 +2,7 @@
 #include "crt.h"
 #include "machdep.h"
 
-/* Prototypes for MD compile functions. */
+/* Prototypes for (mostly-)MD compile functions. */
 void co_enter(void);
 void co_cmov(int ra, int rb, int rc);
 void co_mov(int ra, int rb);              /* MI */
@@ -11,7 +11,8 @@ void co_amend(int ra, int rb, int rc);
 void co_add(int ra, int rb, int rc);
 void co_mul(int ra, int rb, int rc);
 void co_div(int ra, int rb, int rc);
-void co_nand(int ra, int rb, int rc);
+void co_and(int ra, int rb, int rc);
+void co_not(int ra, int rbc);
 void co_halt(void);
 void co_alloc(int rb, int rc);
 void co_free(int rc);
@@ -23,6 +24,7 @@ void co_badness(void);
 void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf);
 void co_fltnoex(void);
 void co__jmpi(void *a);
+
 
 /* State shared by umc and co, 
    which perhaps the latter should care less about. */

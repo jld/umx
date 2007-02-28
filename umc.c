@@ -122,7 +122,8 @@ if (ISC(b) && ISC(c)) { \
 			break;
 		case 6: 
 			CFOLD(1, ~(vb & vc));
-			co_nand(a, b, c);
+			co_and(a, b, c);
+			co_not(a, a);
 			break;
 		case 7: 
 			co_halt();
