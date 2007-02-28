@@ -27,8 +27,6 @@ void co__jmpi(void *a);
 /* State shared by umc and co, 
    which perhaps the latter should care less about. */
 
-/* FIXME: this should go in machdep.h or something */
-
 struct {
 	struct cod inl, outl, *c;
 	p_t time;
