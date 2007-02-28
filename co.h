@@ -1,5 +1,6 @@
 #include "stuff.h"
 #include "crt.h"
+#include "machdep.h"
 
 /* Prototypes for MD compile functions. */
 void co_enter(void);
@@ -26,8 +27,6 @@ void co__jmpi(void *a);
    which perhaps the latter should care less about. */
 
 /* FIXME: this should go in machdep.h or something */
-#define NMREG 8
-#define NOREG (-1)
 
 struct {
 	struct cod inl, outl, *c;
@@ -35,7 +34,7 @@ struct {
 	struct block *curblk;
 	p_t con[8], mlru[8];
 	znz_t znz;
-	int8_t vtom[8], mtov[NMREG];
+	int8_t vtom[8], mtov[MD_NMREG];
 	uint8_t cset, rset, mset;
 } g;
 

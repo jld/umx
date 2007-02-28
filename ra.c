@@ -58,7 +58,7 @@ int ra_mget(void)
 			m = mm;
 		}
 	}
-	assert(m >= 0 && m < NMREG);
+	assert(m >= 0 && m < MD_NMREG);
 	assert(d > 0); /* mregs used for this insn (or held) are off-limits */
 	ra_mclear(m);
 	return m;
@@ -86,7 +86,7 @@ int ra_mgetv(int v)
 	
 	if (ISR(v)) {
 		m = g.vtom[v];
-		assert(m >= 0 && m < NMREG);
+		assert(m >= 0 && m < MD_NMREG);
 		ra_mtouch(m);
 	} else {
 		m = ra_mget();
