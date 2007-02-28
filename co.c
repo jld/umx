@@ -194,17 +194,13 @@ void co_and(int ra, int rb, int rc)
 
 	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	if (rb != rc) {
-		if (ISC(rc)) {
-			ra_mchange(mab, ra);
-			e_andri(mab, g.con[rc]);
-		} else {
-			mc = ra_mgetv(rc);
-			ra_mchange(mab, ra);
-			e_andrr(mab, mc);
-		}
-	} else {
+	if (ISC(rc)) {
 		ra_mchange(mab, ra);
+		e_andri(mab, g.con[rc]);
+	} else {
+		mc = ra_mgetv(rc);
+		ra_mchange(mab, ra);
+		e_andrr(mab, mc);
 	}
 	noncon(ra);
 }
