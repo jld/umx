@@ -49,6 +49,16 @@ umc_mkblk(p_t x, znz_t znz)
 		bset(prognowr, g.time);
 		
 		switch(o) {
+
+#define CFOLD(p, e) \
+if (ISC(b) && ISC(c)) { \
+	p_t vb = g.con[b], vc = g.con[c]; \
+	if (p) { \
+		co_ortho(a, e); \
+		break; \
+	} \
+}
+
 		case 0: 
 			if (g.time + 1 < limit) {
 				p_t ii, oo, bb, cc;
@@ -66,20 +76,52 @@ umc_mkblk(p_t x, znz_t znz)
 			}
 			co_cmov(a, b, c);
 			break;
-		case 1: co_index(a, b, c); break;
-		case 2: co_amend(a, b, c); break;
-		case 3: co_add(a, b, c); break;
-		case 4: co_mul(a, b, c); break;
-		case 5: co_div(a, b, c); break;
-		case 6: co_nand(a, b, c); break;
-		case 7: co_halt(); done = 1; break;
-		case 8: co_alloc(b, c); break;
-		case 9: co_free(c); break;
-		case 10: co_output(c); break;
-		case 11: co_input(c); break;
-		case 12: co_load(b,c); done = 1; break;
-		case 13: co_ortho(INSN_IR(i), INSN_IM(i)); break;
-		default: co_badness(); done = 1; break;
+		case 1: 
+			co_index(a, b, c);
+			break;
+		case 2: 
+			co_amend(a, b, c);
+			break;
+		case 3: 
+			CFOLD(1, vb + vc);
+			co_add(a, b, c);
+			break;
+		case 4: 
+			CFOLD(1, vb * vc);
+			co_mul(a, b, c);
+			break;
+		case 5:
+			CFOLD(vc != 0, vb / vc);
+			co_div(a, b, c);
+			break;
+		case 6: 
+			CFOLD(1, ~(vb & vc));
+			co_nand(a, b, c);
+			break;
+		case 7: 
+			co_halt();
+			done = 1; break;
+		case 8: 
+			co_alloc(b, c);
+			break;
+		case 9: 
+			co_free(c);
+			break;
+		case 10:
+			co_output(c);
+			break;
+		case 11: 
+			co_input(c);
+			break;
+		case 12: 
+			co_load(b,c);
+			done = 1; break;
+		case 13: 
+			co_ortho(INSN_IR(i), INSN_IM(i));
+			break;
+		default:
+			co_badness();
+			done = 1; break;
 		}
 		nbcompiled[0] += here - then;
 		nbcompiled[1] += g.outl.next - othen;

@@ -144,10 +144,6 @@ void co_add(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 	
-	if (ISC(rb)&&ISC(rc)) {
-		co_ortho(ra, g.con[rb] + g.con[rc]);
-		return;
-	}
 	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (ISC(rc)) {
@@ -165,10 +161,6 @@ void co_mul(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 
-	if (ISC(rb)&&ISC(rc)) {
-		co_ortho(ra, g.con[rb] * g.con[rc]);
-		return;
-	}
 	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (ISC(rc)) {
@@ -186,10 +178,6 @@ void co_div(int ra, int rb, int rc)
 {
 	int mc;
 
-	if (ISC(rb)&&ISC(rc) && g.con[rc]) {
-		co_ortho(ra, g.con[rb] / g.con[rc]);
-		return;
-	}
 	if (ISC(rc) && g.con[rc]) {
 		p_t d = g.con[rc];
 		int z = ctz(d), mab;
@@ -218,10 +206,6 @@ void co_nand(int ra, int rb, int rc)
 {
 	int mab, mc, rt;
 
-	if (ISC(rb)&&ISC(rc)) {
-		co_ortho(ra, ~(g.con[rb] & g.con[rc]));
-		return;
-	}
 	if (rc == ra || ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
 	if (rb != rc) {
