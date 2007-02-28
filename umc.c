@@ -74,6 +74,15 @@ if (ISC(b) && ISC(c)) { \
 					++g.time; done = 1; break;
 				}
 			}
+			if (ISZ(c) || a == b) /* nop */
+				break;
+			if (ISNZ(c)) { /* move reg */
+				if (ISC(b))
+					co_ortho(a, g.con[b]);
+				else
+					co_mov(a, b);
+				break;
+			}
 			co_cmov(a, b, c);
 			break;
 		case 1: 

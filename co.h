@@ -5,6 +5,7 @@
 /* Prototypes for MD compile functions. */
 void co_enter(void);
 void co_cmov(int ra, int rb, int rc);
+void co_mov(int ra, int rb);
 void co_index(int ra, int rb, int rc);
 void co_amend(int ra, int rb, int rc);
 void co_add(int ra, int rb, int rc);

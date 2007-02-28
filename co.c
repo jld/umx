@@ -22,37 +22,34 @@ void co_enter(void)
 	e_subri(ESP,12);
 }
 
+void co_mov(int ra, int rb)
+{
+	int mab;
+	
+	mab = ra_mgetv(rb);
+	ra_mchange(mab, ra);
+	noncon(ra);
+	if (ISNZ(rb))
+		setnz(ra);
+}
+
 void co_cmov(int ra, int rb, int rc)
 {
 	int ma, mb, mc;
 
-	if (ISZ(rc) || ra == rb)
-		return;
-	if (ISNZ(rc)) {
-		if (ISC(rb)) {
-			co_ortho(ra, g.con[rb]);
-			return;
-		}
-		mb = ra_mgetv(rb);
-		ra_mchange(mb, ra);
-		noncon(ra);
-		if (ISNZ(rb))
-			setnz(ra);
-	} else {
-		int nz = ISNZ(ra) && ISNZ(rb);
-		mc = ra_mgetv(rc);
-		/* Ick. */
-		ma = ra_mgetv(ra);
-		mb = ra_mgetv(rb);
-		e_cmpri(mc, 0);
-		jcc_over(CCz);
-		e_movrr(ma, mb);
-		end_over;
-		ra_vdirty(ra);
-		noncon(ra);
-		if (nz)
-			setnz(ra);
-	}
+	int nz = ISNZ(ra) && ISNZ(rb);
+	mc = ra_mgetv(rc);
+	/* Ick. */
+	ma = ra_mgetv(ra);
+	mb = ra_mgetv(rb);
+	e_cmpri(mc, 0);
+	jcc_over(CCz);
+	e_movrr(ma, mb);
+	end_over;
+	ra_vdirty(ra);
+	noncon(ra);
+	if (nz)
+		setnz(ra);
 }
 
 static void co__ldst(char opc, int rs, int ri, int rd, int(*dget)(int))
