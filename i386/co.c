@@ -14,6 +14,16 @@ void co__mldi(int mr, int i) { e_movri(mr, i); }
 void co__msti(int i, int vr) { e_umsti(i, vr); }
 void co__mmr(int md, int ms) { e_movrr(md, ms); }
 
+static void co__push(int r)
+{
+	if (ISR(r))
+		e_pushr(g.vtom[r]);
+	else if (ISC(r))
+		e_pushi(g.con[r]);
+	else
+		e_pushu(r);
+}
+
 void co_enter(void)
 {
 	e_pushr(EBP);
@@ -284,12 +294,7 @@ void co_loadguard(int rb, int rc)
 	}
 	e_addri(ESP,16);
 	e_pushi(g.znz | NZMASK(rb));
-	if (ISR(rc)) {
-		e_pushr(g.vtom[rc]);
-	} else {
-		/* do a memory push; can't mutate ra state while branched */
-		CC(0xFF); Cmodrm(MODdb, 6, EBP); CC(DofU(rc));
-	}
+	co__push(rc);
 	e_pushr(mb);
 	e_calli_rtnp(um_loadfar);
 	if (!ISNZ(rb)) {

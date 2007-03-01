@@ -236,6 +236,8 @@ SIV e_umst(int mr, int ur) { CC(0x89); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
 SIV e_umsti(p_t im, int ur)
 { assert(ur>=0 && ur<8); CC(0xC7); Cmodrm(MODdb,0,EBP); CC(DofU(ur)); CW(im); }
 
+SIV e_pushu(int ur) { CC(0xFF); Cmodrm(MODdb,6,EBP); CC(DofU(ur)); }
+
 #if 0
 SIV e_umldc(int mr, int ur) 
 { if (ISC(ur)) e_movri(mr,g.con[ur]); else e_umld(mr,ur); }
