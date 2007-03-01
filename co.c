@@ -126,45 +126,40 @@ void co_amend(int ra, int rb, int rc)
 	}
 }
 
-void co_add(int ra, int rb, int rc)
-{
-	int mab, mc;
-	
-	mab = ra_mgetv(rb);
-	mc = ra_mgetv(rc);
-	ra_mchange(mab, ra);
-	e_addrr(mab, mc);
-	noncon(ra);
+#define BOILERPLATE(stem)                  \
+void co_##stem(int ra, int rb, int rc)     \
+{                                          \
+	int mab, mc;                       \
+	                                   \
+	mab = ra_mgetv(rb);                \
+	mc = ra_mgetv(rc);                 \
+	ra_mchange(mab, ra);               \
+	e_##stem##rr(mab, mc);             \
+	noncon(ra);                        \
+}                                          \
+void co_##stem##_i(int ra, int rb, p_t ic) \
+{                                          \
+	int mab;                           \
+                                           \
+	mab = ra_mgetv(rb);                \
+	ra_mchange(mab, ra);               \
+	e_##stem##ri(mab, ic);             \
+	noncon(ra);                        \
 }
 
-void co_add_i(int ra, int rb, p_t ic)
+BOILERPLATE(add)
+BOILERPLATE(mul)
+BOILERPLATE(and)
+
+#undef BOILERPLATE
+
+void co_not(int ra, int rbc)
 {
-	int mab;
+	int m;
 
-	mab = ra_mgetv(rb);
-	ra_mchange(mab, ra);
-	e_addri(mab, ic);
-	noncon(ra);
-}
-
-void co_mul(int ra, int rb, int rc)
-{
-	int mab, mc;
-
-	mab = ra_mgetv(rb);
-	mc = ra_mgetv(rc);
-	ra_mchange(mab, ra);
-	e_mulrr(mab, mc);
-	noncon(ra);
-}
-
-void co_mul_i(int ra, int rb, p_t ic)
-{
-	int mab;
-	
-	mab = ra_mgetv(rb);
-	ra_mchange(mab, ra);
-	e_mulri(mab, ic);
+	m = ra_mgetv(rbc);
+	ra_mchange(m, ra);
+	e_notr(m);
 	noncon(ra);
 }
 
@@ -193,37 +188,6 @@ void co_div(int ra, int rb, int rc)
 	ra_mchange(EAX, ra);
 	CC(0xF7); Cmodrm(MODreg, 6, mc);
 	ra_mrelse(EDX);
-	noncon(ra);
-}
-
-void co_and(int ra, int rb, int rc)
-{
-	int mab, mc;
-
-	mab = ra_mgetv(rb);
-	mc = ra_mgetv(rc);
-	ra_mchange(mab, ra);
-	e_andrr(mab, mc);
-	noncon(ra);
-}
-
-void co_and_i(int ra, int rb, p_t ic)
-{
-	int mab;
-
-	mab = ra_mgetv(rb);
-	ra_mchange(mab, ra);
-	e_andri(mab, ic);
-	noncon(ra);
-}
-
-void co_not(int ra, int rbc)
-{
-	int m;
-
-	m = ra_mgetv(rbc);
-	ra_mchange(m, ra);
-	e_notr(m);
 	noncon(ra);
 }
 
