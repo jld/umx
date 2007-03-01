@@ -111,7 +111,7 @@ void co_postwrite(int ra, int rb)
 	ma = ra_mgetv(ra);
 	co__cclear();
 	e_cmpri(ma, 0);
-	e_jcc(g.outl.next, CCz); /* does this really need to be OOL? */
+	e_jcc(g.outl.next, CCz);
 	g.c = &g.outl;
 	co__postwrite(rb, g.znz | ZMASK(ra));
 	g.c = &g.inl;
