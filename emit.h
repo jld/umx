@@ -1,11 +1,3 @@
-static int ctz(unsigned l)
-{
-	int n = 0;
-	if (!l) return -1;
-	while (!(l&1)) { ++n; l>>=1; }
-	return n;
-}
-
 #define here (g.c->next)
 #define CC(ch) (*here++ = (ch))
 #define CW(w) (((int*)(here+=4))[-1] = (w))
@@ -174,13 +166,16 @@ SIV e_shrri(int r, int i) { e_shxri(r, i, 5); }
 SIV e_shlri(int r, int i) { e_shxri(r, i, 4); }
 
 SIV e_mulri(int r, p_t i) {
-	int z = ctz(i);
-	p_t m = i >> z;
+	int z = 0;
+	p_t m = i;
 
 	if (i == 0) {
 		e_xorrr(r, r);
 		return;
 	}
+	
+	while (!(m & 1)) { ++z; m >>= 1; }
+
 	switch(m) {
 	case 9:
 		e_learrr(r, r, r, Seight);

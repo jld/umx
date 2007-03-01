@@ -4,6 +4,14 @@
 
 #define here (g.c->next)
 
+static int ctz(unsigned l)
+{
+	int n = 0;
+	if (!l) return -1;
+	while (!(l&1)) { ++n; l>>=1; }
+	return n;
+}
+
 void co_ortho(int ri, p_t imm)
 {
 	ra_vinval(ri);
@@ -137,6 +145,13 @@ if (ISC(b) && ISC(c)) {                   \
 			if (b == c) {
 				co_ortho(a, 1);
 				break;
+			}
+			if (ISC(c) && g.con[c]) {
+				int z = ctz(g.con[c]);
+				if (g.con[c] == 1U << z) {
+					co_shr_i(a, b, z);
+					break;
+				}
 			}
 			co_div(a, b, c);
 			break;

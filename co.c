@@ -161,18 +161,6 @@ void co_div(int ra, int rb, int rc)
 {
 	int mc;
 
-	if (ISC(rc) && g.con[rc]) {
-		p_t d = g.con[rc];
-		int z = ctz(d), mab;
-		if (d == 1U << z) {
-			mab = ra_mgetv(rb);
-			ra_mchange(mab, ra);
-			e_shrri(mab, z);
-			noncon(ra);
-			return;
-		}
-	}
-
 	assert(rb != rc);
 	ra_ldvm(rb, EAX);
 	ra_mhold(EDX);
@@ -183,6 +171,17 @@ void co_div(int ra, int rb, int rc)
 	ra_mchange(EAX, ra);
 	CC(0xF7); Cmodrm(MODreg, 6, mc);
 	ra_mrelse(EDX);
+	noncon(ra);
+}
+
+
+void co_shr_i(int ra, int rb, int z)
+{
+	int mab;
+
+	mab = ra_mgetv(rb);
+	ra_mchange(mab, ra);
+	e_shrri(mab, z);
 	noncon(ra);
 }
 
