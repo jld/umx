@@ -128,35 +128,43 @@ void co_amend(int ra, int rb, int rc)
 
 void co_add(int ra, int rb, int rc)
 {
-	int mab, mc, rt;
+	int mab, mc;
 	
-	if (ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	if (ISC(rc)) {
-		ra_mchange(mab, ra);
-		e_addri(mab, g.con[rc]);
-	} else {
-		mc = ra_mgetv(rc);
-		ra_mchange(mab, ra);
-		e_addrr(mab, mc);
-	}
+	mc = ra_mgetv(rc);
+	ra_mchange(mab, ra);
+	e_addrr(mab, mc);
+	noncon(ra);
+}
+
+void co_add_i(int ra, int rb, p_t ic)
+{
+	int mab;
+
+	mab = ra_mgetv(rb);
+	ra_mchange(mab, ra);
+	e_addri(mab, ic);
 	noncon(ra);
 }
 
 void co_mul(int ra, int rb, int rc)
 {
-	int mab, mc, rt;
+	int mab, mc;
 
-	if (ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	if (ISC(rc)) {
-		ra_mchange(mab, ra);
-		e_mulri(mab, g.con[rc]);
-	} else {
-		mc = ra_mgetv(rc);
-		ra_mchange(mab, ra);
-		e_mulrr(mab, mc);
-	}
+	mc = ra_mgetv(rc);
+	ra_mchange(mab, ra);
+	e_mulrr(mab, mc);
+	noncon(ra);
+}
+
+void co_mul_i(int ra, int rb, p_t ic)
+{
+	int mab;
+	
+	mab = ra_mgetv(rb);
+	ra_mchange(mab, ra);
+	e_mulri(mab, ic);
 	noncon(ra);
 }
 
@@ -190,18 +198,22 @@ void co_div(int ra, int rb, int rc)
 
 void co_and(int ra, int rb, int rc)
 {
-	int mab, mc, rt;
+	int mab, mc;
 
-	if (ISC(rb)) { rt = rb; rb = rc; rc = rt; }
 	mab = ra_mgetv(rb);
-	if (ISC(rc)) {
-		ra_mchange(mab, ra);
-		e_andri(mab, g.con[rc]);
-	} else {
-		mc = ra_mgetv(rc);
-		ra_mchange(mab, ra);
-		e_andrr(mab, mc);
-	}
+	mc = ra_mgetv(rc);
+	ra_mchange(mab, ra);
+	e_andrr(mab, mc);
+	noncon(ra);
+}
+
+void co_and_i(int ra, int rb, p_t ic)
+{
+	int mab;
+
+	mab = ra_mgetv(rb);
+	ra_mchange(mab, ra);
+	e_andri(mab, ic);
 	noncon(ra);
 }
 

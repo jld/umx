@@ -9,9 +9,12 @@ void co_mov(int ra, int rb);              /* MI */
 void co_index(int ra, int rb, int rc);
 void co_amend(int ra, int rb, int rc);
 void co_add(int ra, int rb, int rc);
+void co_add_i(int ra, int rb, p_t ic);
 void co_mul(int ra, int rb, int rc);
+void co_mul_i(int ra, int rb, p_t ic);
 void co_div(int ra, int rb, int rc);
 void co_and(int ra, int rb, int rc);
+void co_and_i(int ra, int rb, p_t ic);
 void co_not(int ra, int rbc);
 void co_halt(void);
 void co_alloc(int rb, int rc);

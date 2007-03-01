@@ -67,13 +67,13 @@ umc_mkblk(p_t x, znz_t znz)
 		
 		switch(o) {
 
-#define CFOLD(p, e) \
-if (ISC(b) && ISC(c)) { \
+#define CFOLD(p, e)                       \
+if (ISC(b) && ISC(c)) {                   \
 	p_t vb = g.con[b], vc = g.con[c]; \
-	if (p) { \
-		co_ortho(a, e); \
-		break; \
-	} \
+	if (p) {                          \
+		co_ortho(a, e);           \
+		break;                    \
+	}                                 \
 }
 
 #ifdef MD_TWOREG
@@ -82,6 +82,16 @@ if (ISC(b) && ISC(c)) { \
 #else
 # define COMMUTE ((void)0)
 #endif
+
+#define OP_IMM_COMM(stem) do {                 \
+	COMMUTE;                               \
+	if (ISC(c) && MD_IMM(g.con[c]))        \
+		co_##stem##_i(a, b, g.con[c]); \
+	else if (ISC(b) && MD_IMM(g.con[b]))   \
+		co_##stem##_i(a, c, g.con[b]); \
+	else                                   \
+		co_##stem(a, b, c);            \
+} while(0)
 
 		case 0: 
 			if (g.time + 1 < limit) {
@@ -117,13 +127,11 @@ if (ISC(b) && ISC(c)) { \
 			break;
 		case 3: 
 			CFOLD(1, vb + vc);
-			COMMUTE;
-			co_add(a, b, c);
+			OP_IMM_COMM(add);
 			break;
 		case 4: 
 			CFOLD(1, vb * vc);
-			COMMUTE;
-			co_mul(a, b, c);
+			OP_IMM_COMM(mul);
 			break;
 		case 5:
 			CFOLD(vc != 0, vb / vc);
@@ -131,10 +139,9 @@ if (ISC(b) && ISC(c)) { \
 			break;
 		case 6: 
 			CFOLD(1, ~(vb & vc));
-			if (b != c) {
-				COMMUTE;
-				co_and(a, b, c);
-			} else 
+			if (b != c)
+				OP_IMM_COMM(and);
+			else 
 				co_mov(a, b);
 			co_not(a, a);
 			break;
