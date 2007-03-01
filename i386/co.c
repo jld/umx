@@ -84,12 +84,12 @@ void co_index(int ra, int rb, int rc)
 static void co__cclear(void)
 { ra_mclear(EAX); ra_mclear(ECX); ra_mclear(EDX); }
 
-static void co__postwrite(int mi, int znz)
+static void co__postwrite(int ri, int znz)
 {
 	e_addri(ESP, 16);
 	e_pushi(znz);
 	e_pushi(g.time);
-	e_pushr(mi);
+	co__push(ri);
 	e_calli_rtnp(um_postwrite);
 }
 
@@ -100,26 +100,20 @@ void co_amend_unsafe(int ra, int rb, int rc)
 
 void co_postwrite_0(int rb)
 {
-	int mb;
-
-	mb = ra_mgetv(rb); /* index */
 	co__cclear();
-	/* and now, the postwrite */
-	co__postwrite(mb, g.znz);
+	co__postwrite(rb, g.znz);
 }
 
 void co_postwrite(int ra, int rb) 
 {
-	int ma, mb;
+	int ma;
 	
-	ma = ra_mgetv(ra); /* segment */		
-	mb = ra_mgetv(rb); /* index */
+	ma = ra_mgetv(ra);
 	co__cclear();
-	/* and now, the postwrite */
 	e_cmpri(ma, 0);
 	e_jcc(g.outl.next, CCz); /* does this really need to be OOL? */
 	g.c = &g.outl;
-	co__postwrite(mb, g.znz | ZMASK(ra));
+	co__postwrite(rb, g.znz | ZMASK(ra));
 	g.c = &g.inl;
 }
 
