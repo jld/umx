@@ -109,20 +109,6 @@ if (ISC(b) && ISC(c)) {                   \
 } while(0)
 
 		case 0: 
-			if (g.time + 1 < limit) {
-				p_t ii, oo, bb, cc;
-				ii = progdata[g.time+1];
-				oo = INSN_OP(ii);
-				bb = INSN_B(ii);
-				cc = INSN_C(ii);
-				if (oo == 12 && a == cc && 
-				    a != bb && a != b && a != c
-				    && ISC(a) && ISC(b)) {
-					p_t ct = g.con[b], cf = g.con[a];
-					co_condbr(bb, c, a, ct, cf);
-					++g.time; done = 1; break;
-				}
-			}
 			if (ISZ(c) || a == b) /* nop */
 				break;
 			if (ISNZ(c)) { /* move reg */
@@ -131,6 +117,22 @@ if (ISC(b) && ISC(c)) {                   \
 				else
 					co_mov(a, b);
 				break;
+			}
+			if (g.time + 1 < limit) {
+				p_t ii, oo, bb, cc;
+				ii = progdata[g.time+1];
+				oo = INSN_OP(ii);
+				bb = INSN_B(ii);
+				cc = INSN_C(ii);
+				if (oo == 12 && a == cc && 
+				    a != bb && a != b && a != c
+				    && ISC(a) && ISC(b) && ISZ(bb)) {
+					p_t ct = g.con[b], cf = g.con[a];
+
+					ra_vflushall();
+					co_condbr(c, a, ct, cf);
+					++g.time; done = 1; break;
+				}
 			}
 			co_cmov(a, b, c);
 			break;

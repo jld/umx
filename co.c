@@ -366,14 +366,11 @@ void co_badness(void)
 	CC(0xCC);
 }
 
-void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
+void co_condbr(int rc, int ri, p_t ct, p_t cf)
 {
-	znz_t znz = (g.znz & ~ZNZMASK(ri)) | ZMASK(rs);
+	znz_t znz = g.znz & ~ZNZMASK(ri);
 	int mc;
 
-	ra_vflushall();
-	if (!ISZ(rs))
-		co_loadguard(rs, ri);
 	mc = ra_mgetv(rc);
 	e_cmpri(mc, 0);
 	jcc_over(CCz);
@@ -381,7 +378,7 @@ void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
 	ra_vflush(ri);
 	co_load_0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
 	end_over;
-	co_load_0c(cf, znz | QZMASK(ri,ct) | ZMASK(rc));
+	co_load_0c(cf, znz | QZMASK(ri,cf) | ZMASK(rc));
 }
 
 void umc_codlink(struct cod *from, char *to)
