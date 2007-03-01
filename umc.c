@@ -27,7 +27,6 @@ umc_mkblk(p_t x, znz_t znz)
 	int done = 0;
 	p_t i, o, a, b, c, limit;
 	struct block *blk = malloc(sizeof(struct block));
-	void *jmpto = 0;
 
 	limit = x + UM_MAXBLK;
 
@@ -186,16 +185,13 @@ if (ISC(b) && ISC(c)) {                   \
 	useblk(blk);
 	if (!done) {
 		char *then = here;
+		struct block *bln;
+
 		ra_vflushall();
 		nbcompiled[0] += here - then;
-		if (jmpto) 
-			co__jmpi(jmpto);
-		else {
-			struct block *bln;
-			/* fallthrough to */
-			bln = umc_mkblk(g.time, g.znz);
-			depblk(blk, bln);
-		}
+		/* fallthrough to */
+		bln = umc_mkblk(g.time, g.znz);
+		depblk(blk, bln);
 	}
 	return blk;
 }

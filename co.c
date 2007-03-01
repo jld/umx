@@ -19,7 +19,7 @@ void co_enter(void)
 	e_pushr(EBP);
 	e_movrr(EBP,ESP);
         e_pushr(EBX); e_pushr(ESI); e_pushr(EDI);
-	e_subri(ESP,12);
+	e_subri(ESP,12+16);
 }
 
 void co_cmov(int ra, int rb, int rc)
@@ -81,12 +81,11 @@ static void co__cclear(void)
 
 static void co__postwrite(int mi, int znz)
 {
-	e_addri(ESP, 12);
+	e_addri(ESP, 16);
 	e_pushi(znz);
 	e_pushi(g.time);
 	e_pushr(mi);
-	e_calli(um_postwrite);
-	e_cmpri(EAX, 0);
+	e_calli_rtnp(um_postwrite);
 }
 
 void co_amend(int ra, int rb, int rc)
@@ -106,10 +105,7 @@ void co_amend(int ra, int rb, int rc)
 			co__cclear();
 			/* and now, the postwrite */
 			co__postwrite(mb, g.znz);
-			jcc_over(CCz);
-			e_jmpr(EAX);
-			end_over;
-		} 
+		}
 	} else {
 		ma = ra_mgetv(ra); /* segment */		
 		mb = ra_mgetv(rb); /* index */
@@ -117,11 +113,9 @@ void co_amend(int ra, int rb, int rc)
 		co__cclear();
 		/* and now, the postwrite */
 		e_cmpri(ma, 0);
-		e_jcc(g.outl.next, CCz);
+		e_jcc(g.outl.next, CCz); /* does this really need to be OOL? */
 		g.c = &g.outl;
 		co__postwrite(mb, g.znz | ZMASK(ra));
-		e_jcc(g.inl.next, CCz);
-		e_jmpr(EAX);
 		g.c = &g.inl;
 	}
 }
@@ -308,7 +302,7 @@ static void co__loadguard(int rb, int rc)
 		e_jcc(g.outl.next, CCz+1);
 		g.c = &g.outl;
 	}
-	e_addri(ESP,12);
+	e_addri(ESP,16);
 	e_pushi(g.znz | NZMASK(rb));
 	if (ISR(rc)) {
 		e_pushr(g.vtom[rc]);
@@ -317,8 +311,7 @@ static void co__loadguard(int rb, int rc)
 		CC(0xFF); Cmodrm(MODdb, 6, EBP); CC(DofU(rc));
 	}
 	e_pushr(mb);
-	e_calli(um_loadfar);
-	e_jmpr(EAX);
+	e_calli_rtnp(um_loadfar);
 	if (!ISNZ(rb)) {
 		g.c = &g.inl;
 	}
@@ -413,10 +406,8 @@ void umc_codlink(struct cod *from, char *to)
 void co_fltnoex(void)
 {
 	ra_vflushall();
-	e_calli(um_destroy_world);
-	e_addri(ESP, 8);
+	e_addri(ESP, 12);
 	e_pushi(g.znz);
 	e_pushi(g.time);
-	e_calli(um_enter);
-	e_jmpr(EAX);
+	e_calli_rtnp(um_destroy_and_go);
 }

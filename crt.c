@@ -47,6 +47,13 @@ um_destroy_world(void)
 	um_crti();
 }
 
+void *
+um_destroy_and_go(void **rtnp, p_t x, znz_t znz)
+{
+	um_destroy_world();
+	return *rtnp = um_enter(x, znz);
+}
+
 void
 delblk(struct block *blk)
 {
@@ -108,7 +115,7 @@ depblk(struct block *src, struct block* dst)
 }
 
 void*
-um_postwrite(p_t target, p_t source, znz_t znz)
+um_postwrite(void **rtnp, p_t target, p_t source, znz_t znz)
 {
 	struct block *tblk;
 	int yow, ayow = 0;
@@ -126,7 +133,7 @@ um_postwrite(p_t target, p_t source, znz_t znz)
 	assert(!btst(prognowr, target));
 
 	if (!btst(prognowr, source))
-		return umc_enter(source + 1, znz);
+		return *rtnp = umc_enter(source + 1, znz);
 	else
 		return 0;
 }
@@ -169,12 +176,12 @@ jmp *%eax
 */
 
 void*
-um_loadfar(p_t seg, p_t idx, znz_t znz)
+um_loadfar(void **rtnp, p_t seg, p_t idx, znz_t znz)
 {
 	um_crtf();
 	um_newprog(seg);
 	um_crti();
-	return um_enter(idx, znz);
+	return *rtnp = um_enter(idx, znz);
 }
 
 void*

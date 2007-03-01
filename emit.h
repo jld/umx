@@ -229,6 +229,13 @@ SIV e_jcc(void* i, int cc) {
 	else { CC(0x0F); CC(0x80+cc); CW(l); }
 }
 
+SIV e_calli_rtnp(void *i) {
+	e_movrr(EAX, ESP);
+	e_subri(EAX, 8);
+	e_pushr(EAX);
+	e_calli(i);
+}
+
 SIV e_umld(int mr, int ur) { CC(0x8B); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
 SIV e_umst(int mr, int ur) { CC(0x89); Cmodrm(MODdb,mr,EBP); CC(DofU(ur)); }
 SIV e_umsti(p_t im, int ur)

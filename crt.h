@@ -36,9 +36,9 @@ static inline int inblk(const struct block *blk, p_t x)
 static inline int znblk(const struct block *blk, znz_t znz)
 { return (blk->znz & znz) == blk->znz; } /* blk->znz \subset znz */
 
-void* um_postwrite(p_t target, p_t source, znz_t znz);
+void* um_postwrite(void **rtnp, p_t target, p_t source, znz_t znz);
 void* um_enter(p_t x, znz_t znz);
-void* um_loadfar(p_t seg, p_t idx, znz_t znz);
+void* um_loadfar(void **rtnp, p_t seg, p_t idx, znz_t znz);
 void* um_enterdep(p_t x, struct block *src, znz_t znz);
 
 bitset_t prognowr, prognoex;
@@ -54,6 +54,7 @@ void getcod(struct cod *c, int n);
 void um_crti(void);
 void um_crtf(void);
 void um_destroy_world(void);
+void *um_destroy_and_go(void **rtnp, p_t x, znz_t znz);
 
 void umc_codlink(struct cod *from, char *to);
 void* umc_enter(p_t x, znz_t znz);
