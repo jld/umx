@@ -26,7 +26,6 @@ void co_cmov(int ra, int rb, int rc)
 {
 	int ma, mb, mc;
 
-	int nz = ISNZ(ra) && ISNZ(rb);
 	mc = ra_mgetv(rc);
 	/* Ick. */
 	ma = ra_mgetv(ra);
@@ -36,9 +35,6 @@ void co_cmov(int ra, int rb, int rc)
 	e_movrr(ma, mb);
 	end_over;
 	ra_vdirty(ra);
-	noncon(ra);
-	if (nz)
-		setnz(ra);
 }
 
 static void co__ldst(char opc, int rs, int ri, int rd, int(*dget)(int))
@@ -73,7 +69,6 @@ void co_index(int ra, int rb, int rc)
 {
 	co__ldst(0x8B, rb, rc, ra, ra_mgetvd);
 	ra_vdirty(ra);
-	noncon(ra);
 }
 
 static void co__cclear(void)
@@ -98,7 +93,6 @@ void co_postwrite_0(int rb)
 	int mb;
 
 	mb = ra_mgetv(rb); /* index */
-	ra_vflushall();
 	co__cclear();
 	/* and now, the postwrite */
 	co__postwrite(mb, g.znz);
@@ -110,7 +104,6 @@ void co_postwrite(int ra, int rb)
 	
 	ma = ra_mgetv(ra); /* segment */		
 	mb = ra_mgetv(rb); /* index */
-	ra_vflushall();
 	co__cclear();
 	/* and now, the postwrite */
 	e_cmpri(ma, 0);
@@ -129,7 +122,6 @@ void co_##stem(int ra, int rb, int rc)     \
 	mc = ra_mgetv(rc);                 \
 	ra_mchange(mab, ra);               \
 	e_##stem##rr(mab, mc);             \
-	noncon(ra);                        \
 }                                          \
 void co_##stem##_i(int ra, int rb, p_t ic) \
 {                                          \
@@ -138,7 +130,6 @@ void co_##stem##_i(int ra, int rb, p_t ic) \
 	mab = ra_mgetv(rb);                \
 	ra_mchange(mab, ra);               \
 	e_##stem##ri(mab, ic);             \
-	noncon(ra);                        \
 }
 
 BOILERPLATE(add)
@@ -154,7 +145,6 @@ void co_not(int ra, int rbc)
 	m = ra_mgetv(rbc);
 	ra_mchange(m, ra);
 	e_notr(m);
-	noncon(ra);
 }
 
 void co_div(int ra, int rb, int rc)
@@ -171,7 +161,6 @@ void co_div(int ra, int rb, int rc)
 	ra_mchange(EAX, ra);
 	CC(0xF7); Cmodrm(MODreg, 6, mc);
 	ra_mrelse(EDX);
-	noncon(ra);
 }
 
 
@@ -182,12 +171,10 @@ void co_shr_i(int ra, int rb, int z)
 	mab = ra_mgetv(rb);
 	ra_mchange(mab, ra);
 	e_shrri(mab, z);
-	noncon(ra);
 }
 
 void co_halt(void)
 {
-	ra_vflushall();
 	e_xorrr(EAX,EAX);
 	e_addri(ESP, 12);
 	e_popr(EDI); e_popr(ESI); e_popr(EBX);
@@ -232,8 +219,6 @@ void co_alloc(int rb, int rc)
 		ra_mchange(EAX, rb);
 		e_calli(um_alloc);
 	}
-	noncon(rb);
-	setnz(rb);
 }
 
 void co_free(int rc)
@@ -267,8 +252,6 @@ void co_free(int rc)
 	ra_mrelse(mlfr);
 	ra_mrelse(mlen);
 #endif
-	setnz(rc); /* this info could go backwards */
-	
 }
 
 void co_output(int rc)
@@ -287,7 +270,6 @@ void co_input(int rc)
 	co__cclear();
 	ra_mchange(EAX, rc);
 	e_calli(getchar);
-	noncon(rc);
 }
 
 void co_loadguard(int rb, int rc)
@@ -340,7 +322,7 @@ void co_load_0c(p_t cc, znz_t znz)
 		CC(0x89); Cmodrm(MODdb, EAX, EDX); CC(1);
 		e_jmpr(EDX);
 		g.c = &g.inl;
-	}	
+	}
 }
 
 void co_load_0(int rc, znz_t znz)
@@ -355,13 +337,11 @@ void co_load_0(int rc, znz_t znz)
 	e_jmpr(EAX);
 }
 
-void co_badness(void)
+void co_badness(const char *fmt_pc)
 {
-	static const char *str = "bad insn @%d";
-	ra_vflushall();
 	e_addri(ESP,8);
 	e_pushi(g.time);
-	e_pushi((int)str);
+	e_pushi((int)fmt_pc);
 	e_calli(um_abend);
 	CC(0xCC);
 }
@@ -389,7 +369,6 @@ void umc_codlink(struct cod *from, char *to)
 
 void co_fltnoex(void)
 {
-	ra_vflushall();
 	e_addri(ESP, 12);
 	e_pushi(g.znz);
 	e_pushi(g.time);

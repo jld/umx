@@ -62,11 +62,15 @@ umc_mkblk(p_t x, znz_t znz)
 	g.c = &g.inl;
 	for (g.time = x; !done && g.time < limit; ++g.time) {
 		char *then, *othen;
-		if (g.time >= proglen) {
-			co_badness(); done = 1; break;
+		if (g.time >= proglen) {	
+			ra_vflushall();
+			co_badness("end of program @%d");
+			done = 1; break;
 		}
 		if (btst(prognoex, g.time)) {
-			co_fltnoex(); done = 1;	break;
+			ra_vflushall();
+			co_fltnoex();
+			done = 1; break;
 		}
 
 		getcod(&g.inl, 1024);
@@ -106,12 +110,13 @@ if (ISC(b) && ISC(c)) {                   \
 		co_##stem##_i(a, c, g.con[b]); \
 	else                                   \
 		co_##stem(a, b, c);            \
+	noncon(a);                             \
 } while(0)
 
 		case 0: 
 			if (ISZ(c) || a == b) /* nop */
 				break;
-			if (ISNZ(c)) { /* move reg */
+			if (ISNZ(c)) { /* move */
 				if (ISC(b))
 					co_ortho(a, g.con[b]);
 				else
@@ -137,10 +142,17 @@ if (ISC(b) && ISC(c)) {                   \
 					++g.time; done = 1; break;
 				}
 			}
+		{
+			int nz = ISNZ(a) && ISNZ(b);
 			co_cmov(a, b, c);
+			noncon(a);
+			if (nz)
+				setnz(a);
+		}
 			break;
 		case 1: 
 			co_index(a, b, c);
+			noncon(a);
 			break;
 		case 2: 
 			co_amend_unsafe(a, b, c);
@@ -150,10 +162,14 @@ if (ISC(b) && ISC(c)) {                   \
 			if (ISZ(a)) {
 				if (ISC(b) && !btst(prognowr, g.con[b]))
 					bset(prognoex, g.con[b]);
-				else 
+				else {
+					ra_vflushall();
 					co_postwrite_0(b);
-			} else
+				}
+			} else {
+				ra_vflushall();
 				co_postwrite(a, b);
+			}
 			break;
 		case 3: 
 			CFOLD(1, vb + vc);
@@ -173,10 +189,12 @@ if (ISC(b) && ISC(c)) {                   \
 				int z = ctz(g.con[c]);
 				if (g.con[c] == 1U << z) {
 					co_shr_i(a, b, z);
+					noncon(a);
 					break;
 				}
 			}
 			co_div(a, b, c);
+			noncon(a);
 			break;
 		case 6: 
 			CFOLD(1, ~(vb & vc));
@@ -195,19 +213,24 @@ if (ISC(b) && ISC(c)) {                   \
 			co_not(a, a);
 			break;
 		case 7: 
+			ra_vflushall();
 			co_halt();
 			done = 1; break;
 		case 8: 
 			co_alloc(b, c);
+			noncon(b);
+			setnz(b);
 			break;
 		case 9: 
 			co_free(c);
+			setnz(c); /* this info could go backwards */
 			break;
 		case 10:
 			co_output(c);
 			break;
 		case 11: 
 			co_input(c);
+			noncon(c);
 			break;
 		case 12: 
 			ra_vflushall();
@@ -222,7 +245,8 @@ if (ISC(b) && ISC(c)) {                   \
 			co_ortho(INSN_IR(i), INSN_IM(i));
 			break;
 		default:
-			co_badness();
+			ra_vflushall();
+			co_badness("bad insn @%d");
 			done = 1; break;
 		}
 		nbcompiled[0] += here - then;
