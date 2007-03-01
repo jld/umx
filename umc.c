@@ -138,7 +138,7 @@ umc_mkblk(p_t x, znz_t znz)
 					ra_vflushall();
 					co_condbr(c, a, ct, cf,
 					    znz | QZMASK(a, ct) | NZMASK(c),
-					    znz | QZMASK(a, ct) | ZMASK(c));
+					    znz | QZMASK(a, cf) | ZMASK(c));
 					++g.time; done = 1; break;
 				}
 			}
