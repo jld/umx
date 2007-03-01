@@ -26,7 +26,6 @@ void co_ortho(int ri, p_t imm);           /* MI */
 void co_badness(void);
 void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf);
 void co_fltnoex(void);
-void co__jmpi(void *a);
 
 
 /* State shared by umc and co, 
