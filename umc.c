@@ -134,6 +134,10 @@ if (ISC(b) && ISC(c)) {                   \
 			break;
 		case 5:
 			CFOLD(vc != 0, vb / vc);
+			if (b == c) {
+				co_ortho(a, 1);
+				break;
+			}
 			co_div(a, b, c);
 			break;
 		case 6: 
@@ -201,16 +205,26 @@ void *umc_enter(p_t x, znz_t znz)
 	return umc_mkblk(x, znz)->jmp;
 }
 
+void umc_init(void)
+{
+	newcod(&g.inl);
+	newcod(&g.outl);
+	g.c = &g.inl;
+}
+
+void umc_fini(void)
+{
+	nukecod(&g.inl);
+	nukecod(&g.outl);
+	g.c = (void*)-1;
+}
+
 int umc_start(void)
 {
 	int (*entry)(int,int,int,int,int,int,int,int);
 
-	newcod(&g.inl);
-	newcod(&g.outl);
-	g.c = &g.inl;
 	entry = (void*)here;
 	co_enter();
 	umc_enter(0, 255);
 	return entry(0,0,0,0,0,0,0,0);
 }
-

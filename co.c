@@ -173,6 +173,7 @@ void co_div(int ra, int rb, int rc)
 		}
 	}
 
+	assert(rb != rc);
 	ra_ldvm(rb, EAX);
 	ra_mhold(EDX);
 	mc = ra_mgetv(rc);

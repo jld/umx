@@ -50,6 +50,7 @@ struct cod
 };
 void newcod(struct cod *c);
 void getcod(struct cod *c, int n);
+void nukecod(struct cod *c);
 
 void um_crti(void);
 void um_crtf(void);
@@ -59,5 +60,7 @@ void *um_destroy_and_go(void **rtnp, p_t x, znz_t znz);
 void umc_codlink(struct cod *from, char *to);
 void* umc_enter(p_t x, znz_t znz);
 int umc_start(void);
+void umc_init(void);
+void umc_fini(void);
 
 #endif

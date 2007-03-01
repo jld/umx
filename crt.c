@@ -230,6 +230,20 @@ getcod(struct cod *c, int n)
 	umc_codlink(xc,c->next);
 }
 
+void
+nukecod(struct cod *c)
+{
+	struct cod *ic = c;
+
+	while (ic) {
+		struct cod *nc = c->cdr;
+		munmap(c->base, c->end - c->base);
+		if (ic != c)
+			free(c);
+		ic = nc;
+	}
+	memset(c, 0, sizeof(*c));
+}
 
 void
 um_crti(void)
@@ -241,6 +255,8 @@ um_crti(void)
 	prognowr = calloc((proglen + 31)/32, 4);
 	assert(!prognoex);
 	prognoex = calloc((proglen + 31)/32, 4);
+
+	umc_init();
 }
 
 void
@@ -264,4 +280,6 @@ um_crtf(void)
 	assert(prognoex);
 	free(prognoex);
 	prognoex = 0;
+	
+	umc_fini();
 }
