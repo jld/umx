@@ -3,11 +3,12 @@
 CDEFS=
 COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing `sh oscflags.sh`
 CWARN=-Wall -W
+CINC=-I. -Ii386
 
 CDBG=
-CFLAGS=$(COPT) $(CWARN) $(CDBG) $(CDEFS) $(XCF)
+CFLAGS=$(COPT) $(CWARN) $(CDBG) $(CDEFS) $(CINC) $(XCF)
 
-OBJS=rt.o util.o crt.o co.o main.o salloc.o vers.o ra.o umc.o
+OBJS=rt.o util.o crt.o main.o salloc.o vers.o ra.o umc.o i386/co.o
 umx: $(OBJS)
 	$(CC) $(CFLAGS) $(LFLAGS) $(OBJS) `sh oslflags.sh` -o umx
 
@@ -23,5 +24,5 @@ Makefile: Makefile.tmpl $(CS)
 	cat Makefile.tmpl >> $@
 	$(MAKE) -f Makefile.tmpl _depend
 _depend:
-	@gcc -MM $(CDEFS) $(CS) >> Makefile
+	@gcc -MM $(CDEFS) $(CINC) $(CS) >> Makefile
 ###END###
