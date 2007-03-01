@@ -143,6 +143,14 @@ if (ISC(b) && ISC(c)) {                   \
 				OP_IMM_COMM(and);
 			else 
 				co_mov(a, b);
+
+			if (g.time + 1 < limit) { /* not-not-and */
+				p_t ii = progdata[g.time+1];
+				if (INSN_OP(ii) == 6 && INSN_A(ii) == a
+				    && INSN_B(ii) == a && INSN_C(ii) == a) {
+					++g.time;  break;
+				}
+			}
 			co_not(a, a);
 			break;
 		case 7: 
