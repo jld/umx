@@ -86,14 +86,14 @@ umc_mkblk(p_t x, znz_t znz)
 		
 		switch(o) {
 
-#define CFOLD(p, e)                       \
-if (ISC(b) && ISC(c)) {                   \
-	p_t vb = g.con[b], vc = g.con[c]; \
-	if (p) {                          \
-		co_ortho(a, e);           \
-		break;                    \
-	}                                 \
-}
+#define CFOLD(p, e)                               \
+	if (ISC(b) && ISC(c)) {                   \
+		p_t vb = g.con[b], vc = g.con[c]; \
+		if (p) {                          \
+			co_ortho(a, e);           \
+			break;                    \
+		}                                 \
+	}
 
 #ifdef MD_TWOREG
 /* TODO: OP a, b, c  where a!=b!=c, b dirty, c clean */
@@ -113,7 +113,7 @@ if (ISC(b) && ISC(c)) {                   \
 	noncon(a);                             \
 } while(0)
 
-		case 0: 
+		case 0:
 			if (ISZ(c) || a == b) /* nop */
 				break;
 			if (ISNZ(c)) { /* move */
@@ -196,7 +196,7 @@ if (ISC(b) && ISC(c)) {                   \
 			co_div(a, b, c);
 			noncon(a);
 			break;
-		case 6: 
+		case 6:
 			CFOLD(1, ~(vb & vc));
 			if (b != c)
 				OP_IMM_COMM(and);
@@ -211,28 +211,29 @@ if (ISC(b) && ISC(c)) {                   \
 				}
 			}
 			co_not(a, a);
+			noncon(a);
 			break;
-		case 7: 
+		case 7:
 			ra_vflushall();
 			co_halt();
 			done = 1; break;
-		case 8: 
+		case 8:
 			co_alloc(b, c);
 			noncon(b);
 			setnz(b);
 			break;
-		case 9: 
+		case 9:
 			co_free(c);
 			setnz(c); /* this info could go backwards */
 			break;
 		case 10:
 			co_output(c);
 			break;
-		case 11: 
+		case 11:
 			co_input(c);
 			noncon(c);
 			break;
-		case 12: 
+		case 12:
 			ra_vflushall();
 			co_loadguard_x(b, c);
 			if (ISC(c))
