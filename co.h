@@ -6,7 +6,9 @@
 void co_cmov(int ra, int rb, int rc);
 void co_mov(int ra, int rb);              /* MI */
 void co_index(int ra, int rb, int rc);
-void co_amend(int ra, int rb, int rc);
+void co_amend_unsafe(int ra, int rb, int rc);
+void co_postwrite(int ra, int rb);
+void co_postwrite_0(int rb);
 void co_add(int ra, int rb, int rc);
 void co_add_i(int ra, int rb, p_t ic);
 void co_mul(int ra, int rb, int rc);

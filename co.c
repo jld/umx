@@ -88,36 +88,36 @@ static void co__postwrite(int mi, int znz)
 	e_calli_rtnp(um_postwrite);
 }
 
-void co_amend(int ra, int rb, int rc)
+void co_amend_unsafe(int ra, int rb, int rc)
+{
+	co__ldst(0x89, ra, rb, rc, ra_mgetv);
+}
+
+void co_postwrite_0(int rb)
+{
+	int mb;
+
+	mb = ra_mgetv(rb); /* index */
+	ra_vflushall();
+	co__cclear();
+	/* and now, the postwrite */
+	co__postwrite(mb, g.znz);
+}
+
+void co_postwrite(int ra, int rb) 
 {
 	int ma, mb;
 	
-	co__ldst(0x89, ra, rb, rc, ra_mgetv);
-
-	if (ISNZ(ra))
-		return;
-	if (ISZ(ra)) {
-		if (ISC(rb) && !btst(prognowr, g.con[rb])) {
-			bset(prognoex, g.con[rb]);
-		} else {
-			mb = ra_mgetv(rb); /* index */
-			ra_vflushall();
-			co__cclear();
-			/* and now, the postwrite */
-			co__postwrite(mb, g.znz);
-		}
-	} else {
-		ma = ra_mgetv(ra); /* segment */		
-		mb = ra_mgetv(rb); /* index */
-		ra_vflushall();
-		co__cclear();
-		/* and now, the postwrite */
-		e_cmpri(ma, 0);
-		e_jcc(g.outl.next, CCz); /* does this really need to be OOL? */
-		g.c = &g.outl;
-		co__postwrite(mb, g.znz | ZMASK(ra));
-		g.c = &g.inl;
-	}
+	ma = ra_mgetv(ra); /* segment */		
+	mb = ra_mgetv(rb); /* index */
+	ra_vflushall();
+	co__cclear();
+	/* and now, the postwrite */
+	e_cmpri(ma, 0);
+	e_jcc(g.outl.next, CCz); /* does this really need to be OOL? */
+	g.c = &g.outl;
+	co__postwrite(mb, g.znz | ZMASK(ra));
+	g.c = &g.inl;
 }
 
 #define BOILERPLATE(stem)                  \

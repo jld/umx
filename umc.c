@@ -130,7 +130,17 @@ if (ISC(b) && ISC(c)) {                   \
 			co_index(a, b, c);
 			break;
 		case 2: 
-			co_amend(a, b, c);
+			co_amend_unsafe(a, b, c);
+
+			if (ISNZ(a))
+				break;
+			if (ISZ(a)) {
+				if (ISC(b) && !btst(prognowr, g.con[b]))
+					bset(prognoex, g.con[b]);
+				else 
+					co_postwrite_0(b);
+			} else
+				co_postwrite(a, b);
 			break;
 		case 3: 
 			CFOLD(1, vb + vc);
