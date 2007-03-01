@@ -290,12 +290,10 @@ void co_input(int rc)
 	noncon(rc);
 }
 
-static void co__loadguard(int rb, int rc)
+void co_loadguard(int rb, int rc)
 {
 	int mb;
 	
-	if (ISZ(rb))
-		return;
 	mb = ra_mgetv(rb);
 	if (!ISNZ(rb)) {
 		e_cmpri(mb, 0);
@@ -317,7 +315,7 @@ static void co__loadguard(int rb, int rc)
 	}
 }
 
-static void co__load0c(p_t cc, znz_t znz)
+void co_load_0c(p_t cc, znz_t znz)
 {
 	struct block *dst = getblkx(cc, znz);
 
@@ -345,27 +343,16 @@ static void co__load0c(p_t cc, znz_t znz)
 	}	
 }
 
-static void co__load0(int rc, znz_t znz)
+void co_load_0(int rc, znz_t znz)
 {
 	int mc;
 
-	if (ISC(rc)) {
-		co__load0c(g.con[rc], znz);
-	} else {
-		mc = ra_mgetv(rc);
-		e_addri(ESP,8);
-		e_pushi(znz);
-		e_pushr(mc);
-		e_calli(um_enter);
-		e_jmpr(EAX);
-	}
-}
-
-void co_load(int rb, int rc)
-{
-	ra_vflushall();
-	co__loadguard(rb, rc);
-	co__load0(rc, g.znz | ZMASK(rb));
+	mc = ra_mgetv(rc);
+	e_addri(ESP,8);
+	e_pushi(znz);
+	e_pushr(mc);
+	e_calli(um_enter);
+	e_jmpr(EAX);
 }
 
 void co_badness(void)
@@ -385,15 +372,16 @@ void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf)
 	int mc;
 
 	ra_vflushall();
-	co__loadguard(rs, ri);
+	if (!ISZ(rs))
+		co_loadguard(rs, ri);
 	mc = ra_mgetv(rc);
 	e_cmpri(mc, 0);
 	jcc_over(CCz);
 	co_ortho(ri, ct);
 	ra_vflush(ri);
-	co__load0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
+	co_load_0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
 	end_over;
-	co__load0c(cf, znz | QZMASK(ri,ct) | ZMASK(rc));
+	co_load_0c(cf, znz | QZMASK(ri,ct) | ZMASK(rc));
 }
 
 void umc_codlink(struct cod *from, char *to)

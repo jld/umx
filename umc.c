@@ -29,6 +29,14 @@ void co_mov(int ra, int rb)
 		setnz(ra);
 }
 
+static void co_loadguard_x(int rb, int rc)
+{
+	if (ISZ(rb))
+		return;
+	co_loadguard(rb, rc);
+	g.znz |= ZMASK(rb);
+}
+
 static struct block*
 umc_mkblk(p_t x, znz_t znz)
 {
@@ -197,7 +205,13 @@ if (ISC(b) && ISC(c)) {                   \
 			co_input(c);
 			break;
 		case 12: 
-			co_load(b,c);
+			ra_vflushall();
+			co_loadguard_x(b, c);
+			if (ISC(c))
+				co_load_0c(g.con[c], g.znz);
+			else
+				co_load_0(c, g.znz);
+			
 			done = 1; break;
 		case 13: 
 			co_ortho(INSN_IR(i), INSN_IM(i));

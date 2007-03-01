@@ -23,7 +23,9 @@ void co_alloc(int rb, int rc);
 void co_free(int rc);
 void co_output(int rc);
 void co_input(int rc);
-void co_load(int rb, int rc);
+void co_loadguard(int rb, int rc);
+void co_load_0(int rc, znz_t);
+void co_load_0c(p_t ic, znz_t);
 void co_ortho(int ri, p_t imm);           /* MI */
 void co_badness(void);
 void co_condbr(int rs, int rc, int ri, p_t ct, p_t cf);
