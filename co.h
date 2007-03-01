@@ -1,6 +1,5 @@
 #include "stuff.h"
 #include "crt.h"
-#include "machdep.h"
 
 /* Prototypes for (mostly-)MD compile functions. */
 void co_cmov(int ra, int rb, int rc);

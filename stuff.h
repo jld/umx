@@ -1,6 +1,8 @@
 #ifndef ___UM__STUFF_H
 #define ___UM__STUFF_H
 
+#include "machdep.h"
+
 #ifdef __GNUC__
 # define um_printflike __attribute__((__format__ (printf, 1, 2)))
 # define um_likely(x) (__builtin_expect((x) != 0, 1))
@@ -48,7 +50,6 @@ void yowl(const char* fmt, ...) um_printflike;
 
 #define UM_PROGN "umx"
 #define UM_IDENT "UMX"
-#define UM_CPU_IDENT "i386"
 extern const char *um_vers;
 
 #endif
