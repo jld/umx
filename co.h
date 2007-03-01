@@ -3,7 +3,6 @@
 #include "machdep.h"
 
 /* Prototypes for (mostly-)MD compile functions. */
-void co_enter(void);
 void co_cmov(int ra, int rb, int rc);
 void co_mov(int ra, int rb);              /* MI */
 void co_index(int ra, int rb, int rc);

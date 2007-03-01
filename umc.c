@@ -218,13 +218,3 @@ void umc_fini(void)
 	nukecod(&g.outl);
 	g.c = (void*)-1;
 }
-
-int umc_start(void)
-{
-	int (*entry)(int,int,int,int,int,int,int,int);
-
-	entry = (void*)here;
-	co_enter();
-	umc_enter(0, 255);
-	return entry(0,0,0,0,0,0,0,0);
-}

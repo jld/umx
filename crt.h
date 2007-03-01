@@ -57,9 +57,9 @@ void um_crtf(void);
 void um_destroy_world(void);
 void *um_destroy_and_go(void **rtnp, p_t x, znz_t znz);
 
-void umc_codlink(struct cod *from, char *to);
+void umc_codlink(struct cod *from, char *to);		/* MD */
 void* umc_enter(p_t x, znz_t znz);
-int umc_start(void);
+int umc_start(void);					/* MD */
 void umc_init(void);
 void umc_fini(void);
 
