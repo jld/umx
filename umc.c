@@ -167,6 +167,7 @@ umc_mkblk(p_t x, znz_t znz)
 					co_postwrite_0(b);
 				}
 			} else {
+				(void)ra_mgetv(b); /* XXX */
 				ra_vflushall();
 				co_postwrite(a, b);
 			}
