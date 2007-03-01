@@ -28,7 +28,7 @@ void co_load_0(int rc, znz_t);
 void co_load_0c(p_t ic, znz_t);
 void co_ortho(int ri, p_t imm);           /* MI */
 void co_badness(void);
-void co_condbr(int rc, int ri, p_t ct, p_t cf);
+void co_condbr(int rc, int ri, p_t ct, p_t cf, znz_t zt, znz_t zf);
 void co_fltnoex(void);
 
 

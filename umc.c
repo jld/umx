@@ -128,9 +128,12 @@ if (ISC(b) && ISC(c)) {                   \
 				    a != bb && a != b && a != c
 				    && ISC(a) && ISC(b) && ISZ(bb)) {
 					p_t ct = g.con[b], cf = g.con[a];
-
+					znz_t znz = g.znz & ~ZNZMASK(a);
+					
 					ra_vflushall();
-					co_condbr(c, a, ct, cf);
+					co_condbr(c, a, ct, cf,
+					    znz | QZMASK(a, ct) | NZMASK(c),
+					    znz | QZMASK(a, ct) | ZMASK(c));
 					++g.time; done = 1; break;
 				}
 			}

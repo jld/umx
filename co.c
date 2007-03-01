@@ -366,19 +366,18 @@ void co_badness(void)
 	CC(0xCC);
 }
 
-void co_condbr(int rc, int ri, p_t ct, p_t cf)
+void co_condbr(int rc, int ri, p_t ct, p_t cf, znz_t zt, znz_t zf)
 {
-	znz_t znz = g.znz & ~ZNZMASK(ri);
 	int mc;
-
+	
 	mc = ra_mgetv(rc);
 	e_cmpri(mc, 0);
 	jcc_over(CCz);
 	co_ortho(ri, ct);
 	ra_vflush(ri);
-	co_load_0c(ct, znz | QZMASK(ri,ct) | NZMASK(rc));
+	co_load_0c(ct, zt);
 	end_over;
-	co_load_0c(cf, znz | QZMASK(ri,cf) | ZMASK(rc));
+	co_load_0c(cf, zf);
 }
 
 void umc_codlink(struct cod *from, char *to)
