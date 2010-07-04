@@ -82,7 +82,7 @@ getblk(p_t x)
 
 	for (i = l; i <= x; ++i) {
 		blk = getblkx(i, 65535);
-		if (inblk(blk, x))
+		if (blk && inblk(blk, x))
 			return blk;
 	}
 	return NULL;
