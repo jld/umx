@@ -1,0 +1,11 @@
+*~
+/Makefile
+*.o
+/umx
+/test.*
+core
+*.core
+gmon.out
+/files
+.gdb_history
+a.out
