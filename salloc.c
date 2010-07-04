@@ -25,12 +25,26 @@ static unsigned freesize(unsigned *lst)
 }
 #endif
 
+static void prime_lastfree(void)
+{
+	unsigned *two;
+	
+	if (lastfree)
+		return;
+	
+	two = salloc(1) - 1;
+	SAF_NXT(two) = lastfree;
+	SAF_END(two) = two + 2;
+	lastfree = two;
+}
+
 void salloc_init(void)
 {
 	nextready = lastfree = 0;
 	mtop = mbot = 0;
 	get_more_ram(1);
 	salloc_reload(0);
+	prime_lastfree();
 }
 
 void salloc_reload(unsigned n)
@@ -64,6 +78,7 @@ void salloc_reload(unsigned n)
 	mbot = nextready;
 	mtop = SAF_END(nextready);
 	nextready = SAF_NXT(nextready);
+	prime_lastfree();
 }
 
 static void get_more_ram(unsigned nsl)
