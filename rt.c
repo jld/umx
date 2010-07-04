@@ -123,7 +123,7 @@ um_ipl(int argc, char** argv)
 			DIE(-1, ("IPL: bad file type: %s", argv[i]));
 		ss = sb.st_size;
 		es[i].e_base = mmap(0, vm_roundup(ss), PROT_READ,
-		    MAP_FILE | MAP_SHARED, fd, 0);
+		    MAP_FILE | MAP_PRIVATE, fd, 0);
 		if (es[i].e_base == MAP_FAILED)
 			DIE(-1, ("IPL: mmap: %s: %s", argv[i], ESTR));
 		stuff += es[i].e_bound = ss/4;
