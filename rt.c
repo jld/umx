@@ -166,6 +166,10 @@ um_progalloc(p_t n)
 	proglen = n;
 	progdata = mmap(0, vm_roundup(4*n), PROT_READ | PROT_WRITE,
 	    MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0);
+
+	if (progdata == MAP_FAILED)
+		progdata = mmap(0, vm_roundup(4*n), PROT_READ | PROT_WRITE,
+		    MAP_ANON | MAP_PRIVATE, -1, 0);		
 	
 	return progdata == MAP_FAILED ? -1 : 0;
 }

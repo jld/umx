@@ -47,18 +47,28 @@ void co_cmov(int ra, int rb, int rc)
 	ra_vdirty(ra);
 }
 
-static void co__ldst(char opc, int rs, int ri, int rd, int(*dget)(int))
+static void co__ldst_sz(char opc, int ri, int rd, int(*dget)(int))
+{
+	int md, mi;
+	
+ 	if (ISC(ri)) {
+		p_t offs = ((p_t)progdata) + g.con[ri] * 4;
+		md = dget(rd);
+		CC(opc); Cmodrm(MODnd, md, RMabs); CW(offs);
+	} else {
+		mi = ra_mgetv(ri);
+		md = dget(rd);
+		CC(opc); Cmodrm(MODnd, md, RMsib); Csib(Sfour, mi, Bmagic);
+		CW((p_t)progdata);
+	}
+}
+
+static void co__ldst_snz(char opc, int rs, int ri, int rd, int(*dget)(int))
 {
 	int ms, md, mi;
 	
  	if (ISC(ri)) {
 		p_t offs = g.con[ri] * 4;
-		if (ISC(rs)) {
-			offs += g.con[rs];
-			md = dget(rd);
-			CC(opc); Cmodrm(MODnd, md, RMabs); CW(offs);
-			return;
-		}
 		ms = ra_mgetv(rs);
 		md = dget(rd);
 		CC(opc);
@@ -72,6 +82,24 @@ static void co__ldst(char opc, int rs, int ri, int rd, int(*dget)(int))
 		ms = ra_mgetv(rs);
 		md = dget(rd);
 		CC(opc); Cmodrm(MODnd, md, RMsib); Csib(Sfour, mi, ms);
+	}
+}
+
+static void co__ldst(char opc, int rs, int ri, int rd, int(*dget)(int))
+{
+	if (ISZ(rs))
+		co__ldst_sz(opc, ri, rd, dget);
+	else if (ISNZ(rs) || !progdata)
+		co__ldst_snz(opc, rs, ri, rd, dget);
+	else {
+		int ms = ra_mgetv(rs);
+		e_cmpri(ms, 0);
+		e_jcc(g.outl.next, CCz);
+		co__ldst_snz(opc, rs, ri, rd, dget);
+		g.c = &g.outl;
+		co__ldst_sz(opc, ri, rd, dget);
+		e_jmpi(g.inl.next);
+		g.c = &g.inl;
 	}
 }
 
