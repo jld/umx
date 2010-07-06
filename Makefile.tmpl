@@ -1,12 +1,12 @@
 # -*- Makefile -*- 
 .POSIX:
 CDEFS=
-COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing `sh oscflags.sh`
+COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing
 CWARN=-Wall -W
 CINC=-I. -Ii386
 
 CDBG=
-CFLAGS=$(COPT) $(CWARN) $(CDBG) $(CDEFS) $(CINC) $(XCF)
+CFLAGS=`sh oscflags.sh` $(COPT) $(CWARN) $(CDBG) $(CDEFS) $(CINC) $(XCF)
 
 OBJS=rt.o util.o crt.o main.o salloc.o vers.o ra.o umc.o i386/co.o
 umx: $(OBJS)
@@ -17,6 +17,9 @@ clean:
 
 force: clean
 	$(MAKE) umx
+
+.c.o:
+	$(CC) $(CFLAGS) -c $< -o $@
 
 CS=$(OBJS:.o=.c)
 Makefile: Makefile.tmpl $(CS)
