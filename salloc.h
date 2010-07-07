@@ -1,4 +1,7 @@
 #include <string.h>
+#ifndef __GNUC__
+#define __builtin_expect(a,b) (a)
+#endif
 
 #define SALL_BIG 65536
 
