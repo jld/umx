@@ -31,7 +31,7 @@ Requires:
 
 * Currently, an i386-compatible CPU.  Other architectures are vaguely planned.
 
-* And the makefile kind of assumes GCC, but that's easy enough to fix.
+* And the makefile kind of assumes GCC flags, but that's easy enough to fix.
 
 How to use:
 
@@ -39,6 +39,9 @@ How to use:
 
 * And then ./umx with one or more program files as arguments.
   (They'll be concatenated -- useful for um.um.)
+
+* Remember to regenerate the makefile when changing dependencies.
+  (GNU make should do this automagically.)
 
 Has been run on:
 
