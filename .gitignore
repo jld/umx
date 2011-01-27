@@ -1,5 +1,4 @@
 *~
-/Makefile
 *.o
 /umx
 /test.*
