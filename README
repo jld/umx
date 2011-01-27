@@ -33,6 +33,13 @@ Requires:
 
 * And the makefile kind of assumes GCC, but that's easy enough to fix.
 
+How to use:
+
+* If everything works, "make" should build it.
+
+* And then ./umx with one or more program files as arguments.
+  (They'll be concatenated -- useful for um.um.)
+
 Has been run on:
 
 * Linux/{i386,amd64}
