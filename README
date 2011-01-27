@@ -1,0 +1,42 @@
+UMX,
+ a dynamic compiler for
+  the Universal Machine of
+   the Cult of the Bound Variable.
+
+(See http://boundvariable.org/um-spec.txt for the machine specification
+  or http://boundvariable.org/task.shtml for programs and more context
+  or http://boundvariable.org/ for general info.)
+
+
+Noteworthy optimizations:
+
+* Local constant propagation/folding to make use of immediate operands
+  present on modern hardware (including and especially control transfers)
+
+* Global forward zero/nonzero propagation to remove dynamic zeroness
+  checks from "load program" and other memory references
+
+* Idiom-recognition for conditional branches
+
+* Local register allocation on low-register host platforms
+
+* Platter-level write-protect and execute-protect of the program array,
+  allowing safe efficient support of fine-grained code/data interleaving
+
+* Customized memory allocator with inlined fast-case allocation and freeing
+
+Requires:
+
+* A Unix-like operating system.  (Mostly for mmap(2).)
+
+* Currently, an i386-compatible CPU.  Other architectures are vaguely planned.
+
+* And the makefile kind of assumes GCC, but that's easy enough to fix.
+
+Has been run on:
+
+* Linux/{i386,amd64}
+* NetBSD/{i386,amd64}
+* Solaris/x86_64 (gcc and Sun cc)
+* Mac OS X, i386 (but not recently)
+* VMware ESXi, with the Linux binary (don't try this at home)
