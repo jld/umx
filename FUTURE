@@ -1,0 +1,58 @@
+Future directions!
+
+
+= Known Bugs =
+
+* Memory is leaked when destroying the world due to nontrivial program
+  load or write/execute-protection failure.
+
+
+= Ports =
+
+AMD64:
+
+* Would have enough registers to map the entire UM register file and
+  the allocator state.  (Bypassing the register allocator may be an
+  interesting trick.)
+
+* But there isn't a portable way to get memory in the lower 4G.
+  (Or even a decent nonportable one, really.)
+
+* It would be possible to allocate a huge arena somewhere and use
+  indices for array identifiers -- word-indexed, even.  This means an
+  extra insn for the general non-constant-everything case, and an
+  extra register.
+
+* Also consider the nature of the array 0 base.
+
+* Writing the assembler may be annoying, if there are any insns I
+  expect to use that might or might not take a REX prefix depending on
+  arguments.
+
+ARM:
+
+* Would have enough registers to map everything.
+
+* Is safely 32-bit for the time being.
+
+* Has exciting limitations on immediates, which will be fun for the
+  assembler.
+
+* Needs OS-dependent syscalls to do cache flush/inval.
+
+AMD32/EM32T/x32:
+
+* Will be interesting once the OS support for it is out there.
+
+
+= Optimizations =
+
+* Deleting the immediates used for branch labels.  They're at the ends
+  of basic blocks and the kills are in the successors (at best), so
+  the current analyses won't pick them up.  Doing a special check over
+  the successors (and locking them!) is probably the best way.
+  (Interblock laziness is probably more bookkeeping than I want to
+  think about.)
+
+* I wonder if all those size-3 allocations could be segregated
+  somehow.  
