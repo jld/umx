@@ -3,7 +3,7 @@
 .POSIX:
 CC=gcc
 CDEFS=
-COPT=-O3 -g -fno-delete-null-pointer-checks -fstrict-aliasing
+COPT=-O3 -fstrict-aliasing
 CWARN=-Wall -W
 CINC=-I. -Ii386
 

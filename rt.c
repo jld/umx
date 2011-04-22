@@ -192,8 +192,13 @@ static int
 um_progalloc(p_t n)
 {
 	proglen = n;
+/* Don't turn this on unless you know what you're doing. */
+#ifdef UM_PROGZERO
 	progdata = mmap(0, vm_roundup(4*n), PROT_READ | PROT_WRITE,
 	    MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0);
+#else
+	progdata = MAP_FAILED;
+#endif
 
 	if (progdata == MAP_FAILED)
 		progdata = mmap(0, vm_roundup(4*n), PROT_READ | PROT_WRITE,
